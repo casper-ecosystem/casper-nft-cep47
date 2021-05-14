@@ -49,17 +49,17 @@ pub extern "C" fn ipfs_hash() {
 
 #[no_mangle]
 pub extern "C" fn balance_of() {
-    let account: AccountHash = runtime::get_named_arg("account");
-    let val: U256 = get_key(&balance_key(&account));
+    let account: PublicKey = runtime::get_named_arg("account");
+    let val: U256 = get_key(&balance_key(&account.to_account_hash()));
     ret(val)
 }
 
 #[no_mangle]
 pub extern "C" fn transfer() {
-    let sender: AccountHash = runtime::get_named_arg("sender");
-    let recipient: AccountHash = runtime::get_named_arg("recipient");
+    let sender: PublicKey = runtime::get_named_arg("sender");
+    let recipient: PublicKey = runtime::get_named_arg("recipient");
     let piece_number: u64 = runtime::get_named_arg("piece_number");
-    if sender != runtime::get_caller() {
+    if sender.to_account_hash() != runtime::get_caller() {
         runtime::revert(ApiError::PermissionDenied);
     }
 
@@ -81,8 +81,8 @@ pub extern "C" fn transfer() {
     owners.insert(token_id, Some(recipient));
     set_key("owners", owners);
 
-    let sender_key: String = get_key(&balance_key(&sender));
-    let recipient_key: String = get_key(&balance_key(&recipient));
+    let sender_key: String = get_key(&balance_key(&sender.to_account_hash()));
+    let recipient_key: String = get_key(&balance_key(&recipient.to_account_hash()));
     let new_sender_balance: U256 = get_key::<U256>(&sender_key) - 1;
     set_key(&sender_key, new_sender_balance);
     let new_recipient_balance: U256 = get_key::<U256>(&recipient_key) + 1;
@@ -91,7 +91,7 @@ pub extern "C" fn transfer() {
 
 #[no_mangle]
 pub extern "C" fn mint() {
-    let recipient: AccountHash = runtime::get_named_arg("recipient");
+    let recipient: PublicKey = runtime::get_named_arg("recipient");
     let piece_number: u64 = runtime::get_named_arg("piece_number");
     let minter: AccountHash = minter();
     if minter != runtime::get_caller() {
@@ -106,7 +106,7 @@ pub extern "C" fn mint() {
     owners.insert(token_id, Some(recipient));
     set_key("owners", owners);
 
-    let recipient_key = balance_key(&recipient);
+    let recipient_key = balance_key(&recipient.to_account_hash());
     let recipient_balance = get_key::<U256>(&recipient_key);
     set_key(&recipient_key, recipient_balance + 1);
 }
@@ -156,12 +156,12 @@ fn number_of_pieces() -> u64 {
     return val;
 }
 
-fn owners() -> BTreeMap<u64, Option<AccountHash>> {
-    let val: BTreeMap<u64, Option<AccountHash>> = get_key("owners");
+fn owners() -> BTreeMap<u64, Option<PublicKey>> {
+    let val: BTreeMap<u64, Option<PublicKey>> = get_key("owners");
     return val;
 }
 
-fn owner_of(token_id: u64) -> Option<AccountHash> {
+fn owner_of(token_id: u64) -> Option<PublicKey> {
     let owners = owners();
     let owner = owners.get(&token_id).unwrap();
     owner.clone()

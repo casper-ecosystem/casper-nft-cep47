@@ -1,0 +1,21 @@
+[package]
+name = "contract"
+version = "0.1.0"
+authors = ["astro019 <dmitry.yakov7@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+contract = { package = "casper-contract", version="1.1.1" }
+types = { package = "casper-types", version="1.1.1" }
+
+[[bin]]
+name = "contract"
+path = "src/main.rs"
+bench = false
+doctest = false
+test = false
+
+[features]
+default = ["contract/std", "types/std"]

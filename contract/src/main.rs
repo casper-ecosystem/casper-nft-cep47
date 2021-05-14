@@ -37,20 +37,20 @@ pub struct TokenId {
 
 #[no_mangle]
 pub extern "C" fn name() {
-    let val: String = get_key("name");
+    let val: String = get_key("name").unwrap();
     ret(val)
 }
 
 #[no_mangle]
 pub extern "C" fn ipfs_hash() {
-    let val: String = get_key("ipfs_hash");
+    let val: String = get_key("ipfs_hash").unwrap();
     ret(val)
 }
 
 #[no_mangle]
 pub extern "C" fn balance_of() {
     let account: PublicKey = runtime::get_named_arg("account");
-    let val: U256 = get_key(&balance_key(&account.to_account_hash()));
+    let val: U256 = get_key(&balance_key(&account.to_account_hash())).unwrap();
     ret(val)
 }
 
@@ -62,12 +62,6 @@ pub extern "C" fn transfer() {
     if sender.to_account_hash() != runtime::get_caller() {
         runtime::revert(ApiError::PermissionDenied);
     }
-
-    let total_number = number_of_pieces();
-    if piece_number > total_number || piece_number == 0 {
-        runtime::revert(ApiError::User(1));
-    }
-
     let owner = owner_of(piece_number);
     if owner.is_none() {
         runtime::revert(ApiError::User(3));
@@ -75,17 +69,13 @@ pub extern "C" fn transfer() {
     if sender != owner.unwrap() {
         runtime::revert(ApiError::PermissionDenied);
     }
+    set_key(&token_key(piece_number), Some(recipient));
 
-    let mut owners = owners();
-    let token_id = to_token_id(piece_number);
-    owners.insert(token_id, Some(recipient));
-    set_key("owners", owners);
-
-    let sender_key: String = get_key(&balance_key(&sender.to_account_hash()));
-    let recipient_key: String = get_key(&balance_key(&recipient.to_account_hash()));
-    let new_sender_balance: U256 = get_key::<U256>(&sender_key) - 1;
+    let sender_key: String = get_key(&balance_key(&sender.to_account_hash())).unwrap();
+    let recipient_key: String = get_key(&balance_key(&recipient.to_account_hash())).unwrap();
+    let new_sender_balance: U256 = get_key::<U256>(&sender_key).unwrap() - 1;
     set_key(&sender_key, new_sender_balance);
-    let new_recipient_balance: U256 = get_key::<U256>(&recipient_key) + 1;
+    let new_recipient_balance: U256 = get_key::<U256>(&recipient_key).unwrap() + 1;
     set_key(&recipient_key, new_recipient_balance);
 }
 
@@ -93,21 +83,19 @@ pub extern "C" fn transfer() {
 pub extern "C" fn mint() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
     let piece_number: u64 = runtime::get_named_arg("piece_number");
-    let minter: AccountHash = minter();
-    if minter != runtime::get_caller() {
+    let minter: PublicKey = minter();
+    if minter.to_account_hash() != runtime::get_caller() {
         runtime::revert(ApiError::PermissionDenied);
     }
-    let token_id = to_token_id(piece_number);
-    let owner = owner_of(token_id);
+    let owner = owner_of(piece_number);
     if owner.is_some() {
         runtime::revert(ApiError::User(2));
     }
-    let mut owners = owners();
-    owners.insert(token_id, Some(recipient));
-    set_key("owners", owners);
+
+    set_key(&token_key(piece_number), Some(recipient));
 
     let recipient_key = balance_key(&recipient.to_account_hash());
-    let recipient_balance = get_key::<U256>(&recipient_key);
+    let recipient_balance = get_key::<U256>(&recipient_key).unwrap();
     set_key(&recipient_key, recipient_balance + 1);
 }
 
@@ -118,12 +106,13 @@ fn ret<T: CLTyped + ToBytes>(value: T) {
     runtime::ret(CLValue::from_t(value).unwrap_or_revert())
 }
 
-fn get_key<T: FromBytes + CLTyped + Default>(name: &str) -> T {
+fn get_key<T: FromBytes + CLTyped>(name: &str) -> Option<T> {
     match runtime::get_key(name) {
-        None => Default::default(),
+        None => None,
         Some(value) => {
             let key = value.try_into().unwrap_or_revert();
-            storage::read(key).unwrap_or_revert().unwrap_or_revert()
+            let value = storage::read(key).unwrap_or_revert().unwrap_or_revert();
+            Some(value)
         }
     }
 }
@@ -142,29 +131,28 @@ fn set_key<T: ToBytes + CLTyped>(name: &str, value: T) {
 }
 
 fn seed() -> URef {
-    let val: URef = get_key("seed");
-    return val;
+    get_key::<URef>("seed").unwrap()
 }
 
-fn minter() -> AccountHash {
-    let val: AccountHash = get_key("minter");
-    return val;
+fn minter() -> PublicKey {
+    get_key::<PublicKey>("minter").unwrap()
 }
 
 fn number_of_pieces() -> u64 {
-    let val: u64 = get_key("number_of_pieces");
-    return val;
+    get_key::<u64>("number_of_pieces").unwrap()
 }
 
-fn owners() -> BTreeMap<u64, Option<PublicKey>> {
-    let val: BTreeMap<u64, Option<PublicKey>> = get_key("owners");
-    return val;
+fn owner_of(piece_number: u64) -> Option<PublicKey> {
+    let token_id = to_token_id(piece_number);
+    get_key::<PublicKey>(&token_key(token_id))
 }
 
-fn owner_of(token_id: u64) -> Option<PublicKey> {
-    let owners = owners();
-    let owner = owners.get(&token_id).unwrap();
-    owner.clone()
+fn balance_key(account: &AccountHash) -> String {
+    format!("balances_{}", account)
+}
+
+fn token_key(token_id: u64) -> String {
+    format!("tokens_{}", to_token_id(token_id))
 }
 
 fn to_token_id(piece_number: u64) -> u64 {
@@ -172,7 +160,6 @@ fn to_token_id(piece_number: u64) -> u64 {
     if piece_number > total_pieces || piece_number == 0 {
         runtime::revert(ApiError::User(1));
     }
-
     let mut hasher = DefaultHasher::new();
     let token_id = TokenId {
         seed: seed(),
@@ -180,8 +167,4 @@ fn to_token_id(piece_number: u64) -> u64 {
     };
     Hash::hash(&token_id, &mut hasher);
     hasher.finish()
-}
-
-fn balance_key(account: &AccountHash) -> String {
-    format!("balances_{}", account)
 }

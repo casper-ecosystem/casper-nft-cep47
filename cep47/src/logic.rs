@@ -6,7 +6,8 @@ type TokenId = String;
 type URI = String;
 
 trait WithStorage<Storage: CEP47Storage> {
-    fn storage(&self) -> Storage;
+    fn storage(&self) -> &Storage;
+    fn storage_mut(&mut self) -> &mut Storage;
 }
 
 trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
@@ -47,16 +48,16 @@ trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
     // Minter function.
     // Guarded by the entrypoint group.
     fn mint_one(&mut self, recipient: PublicKey, token_uri: URI) {
-        self.storage()
+        self.storage_mut()
             .mint_copies(recipient, token_uri, U256::one());
     }
 
     fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>) {
-        self.storage().mint_many(recipient, token_uris);
+        self.storage_mut().mint_many(recipient, token_uris);
     }
 
     fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256) {
-        self.storage().mint_copies(recipient, token_uri, count);
+        self.storage_mut().mint_copies(recipient, token_uri, count);
     }
 
     // Transfer functions.
@@ -71,12 +72,12 @@ trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         );
         // 3. Remove token_id from sender_tokens.
         sender_tokens.retain(|x| x.clone() != token_id);
-        self.storage().set_tokens(sender, sender_tokens);
+        self.storage_mut().set_tokens(sender, sender_tokens);
 
         // 4. Add token_id to the recipient tokens
         let mut recipient_tokens = self.storage().get_tokens(recipient);
         recipient_tokens.push(token_id);
-        self.storage().set_tokens(recipient, recipient_tokens);
+        self.storage_mut().set_tokens(recipient, recipient_tokens);
     }
 
     fn transfer_many_tokens(
@@ -92,8 +93,8 @@ trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         }
         let mut recipient_tokens = self.storage().get_tokens(recipient);
         recipient_tokens.append(&mut token_ids.clone());
-        self.storage().set_tokens(sender, sender_tokens);
-        self.storage().set_tokens(recipient, recipient_tokens);
+        self.storage_mut().set_tokens(sender, sender_tokens);
+        self.storage_mut().set_tokens(recipient, recipient_tokens);
     }
 
     fn transfer_all_tokens(&mut self, sender: PublicKey, recipient: PublicKey) {
@@ -101,8 +102,8 @@ trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         let mut recipient_tokens = self.storage().get_tokens(recipient);
         recipient_tokens.append(&mut sender_tokens);
 
-        self.storage().set_tokens(sender, sender_tokens);
-        self.storage().set_tokens(recipient, recipient_tokens);
+        self.storage_mut().set_tokens(sender, sender_tokens);
+        self.storage_mut().set_tokens(recipient, recipient_tokens);
     }
 
     // URef releated function.
@@ -141,10 +142,7 @@ mod tests {
     use super::{
         AsymmetricType, CEP47Contract, CEP47Storage, PublicKey, TokenId, WithStorage, U256, URI,
     };
-    use std::{
-        collections::{hash_map::DefaultHasher, BTreeMap},
-        hash::{Hash, Hasher},
-    };
+    use std::{collections::{hash_map::DefaultHasher, BTreeMap}, hash::{Hash, Hasher}, sync::Mutex};
 
     struct TestStorage {
         name: String,
@@ -286,11 +284,25 @@ mod tests {
         }
     }
 
-    struct TestContract {}
+    struct TestContract {
+        storage: TestStorage
+    }
+
+    impl TestContract {
+        pub fn new() -> TestContract {
+            TestContract {
+                storage: TestStorage::new()
+            }
+        }
+    }
 
     impl WithStorage<TestStorage> for TestContract {
-        fn storage(&self) -> TestStorage {
-            TestStorage::new()
+        fn storage(&self) -> &TestStorage {
+            &self.storage
+        }
+
+        fn storage_mut(&mut self) -> &mut TestStorage {
+            &mut self.storage
         }
     }
 
@@ -298,7 +310,7 @@ mod tests {
 
     #[test]
     fn test_metadata() {
-        let contract = TestContract {};
+        let contract = TestContract::new();
         assert_eq!(
             contract.name(),
             String::from("Casper Enhancement Proposal 47")
@@ -311,7 +323,7 @@ mod tests {
     }
     #[test]
     fn test_mint_many() {
-        let mut contract = TestContract {};
+        let mut contract = TestContract::new();
         let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
         let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
@@ -339,7 +351,7 @@ mod tests {
     }
     #[test]
     fn test_mint_copies() {
-        let mut contract = TestContract {};
+        let mut contract = TestContract::new();
         let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
 
         assert_eq!(contract.total_supply(), U256::from(0));
@@ -361,7 +373,7 @@ mod tests {
     }
     #[test]
     fn test_transfer_token() {
-        let mut contract = TestContract {};
+        let mut contract = TestContract::new();
         let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
         let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
@@ -390,7 +402,7 @@ mod tests {
     }
     #[test]
     fn test_transfer_all_tokens() {
-        let mut contract = TestContract {};
+        let mut contract = TestContract::new();
         let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
         let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
@@ -421,7 +433,7 @@ mod tests {
     }
     #[test]
     fn test_transfer_many_tokens() {
-        let mut contract = TestContract {};
+        let mut contract = TestContract::new();
         let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
         let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 

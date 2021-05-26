@@ -120,11 +120,11 @@ trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
 
     fn attach(&mut self, token_uref: URef, recipient: PublicKey) {
         let token_id = self.storage_mut().del_uref(token_uref).unwrap();
-        // load tokens of recipient
-        // add token to list
-        // save tokens
+        let mut tokens = self.storage().get_tokens(recipient);
+        tokens.push(token_id);
+        self.storage_mut().set_tokens(recipient, tokens);
     }
-    
+
     fn token_id(&self, token_uref: URef) -> TokenId {
         self.storage().token_id(token_uref).unwrap()
     }
@@ -147,7 +147,7 @@ trait CEP47Storage {
     fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>);
     fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>);
     fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256);
-    
+
     fn new_uref(&mut self, token_id: TokenId) -> Option<URef>;
     fn del_uref(&mut self, token_uref: URef) -> Option<TokenId>;
     fn token_id(&self, token_uref: URef) -> Option<TokenId>;
@@ -159,9 +159,14 @@ mod tests {
     use types::AccessRights;
 
     use super::{
-        AsymmetricType, CEP47Contract, CEP47Storage, PublicKey, TokenId, WithStorage, U256, URI, URef
+        AsymmetricType, CEP47Contract, CEP47Storage, PublicKey, TokenId, URef, WithStorage, U256,
+        URI,
     };
-    use std::{collections::{BTreeMap, hash_map::DefaultHasher}, hash::{Hash, Hasher}, sync::Mutex};
+    use std::{
+        collections::{hash_map::DefaultHasher, BTreeMap},
+        hash::{Hash, Hasher},
+        sync::Mutex,
+    };
 
     struct TestStorage {
         name: String,
@@ -186,7 +191,7 @@ mod tests {
                 balances: BTreeMap::new(),
                 belongs_to: BTreeMap::new(),
                 token_uris: BTreeMap::new(),
-                urefs: BTreeMap::new()
+                urefs: BTreeMap::new(),
             }
         }
     }
@@ -245,7 +250,6 @@ mod tests {
         }
 
         fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
-            let owner_prev_balance = self.balance_of(owner);
             let owner_new_balance = U256::from(token_ids.len() as u64);
 
             let owner_tokens = self.get_tokens(owner);
@@ -258,7 +262,6 @@ mod tests {
 
             self.tokens.insert(owner, token_ids.clone());
             self.balances.insert(owner, owner_new_balance);
-            self.total_supply = self.total_supply - owner_prev_balance + owner_new_balance;
         }
 
         fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>) {
@@ -299,10 +302,7 @@ mod tests {
         fn new_uref(&mut self, token_id: super::TokenId) -> Option<URef> {
             let mut rng = rand::thread_rng();
             let val: [u8; 32] = rng.gen();
-            let uref = URef::new(
-                val, 
-                AccessRights::READ_ADD_WRITE
-            );
+            let uref = URef::new(val, AccessRights::READ_ADD_WRITE);
             if self.urefs.contains_key(&uref) {
                 None
             } else {
@@ -328,13 +328,13 @@ mod tests {
     }
 
     struct TestContract {
-        storage: TestStorage
+        storage: TestStorage,
     }
 
     impl TestContract {
         pub fn new() -> TestContract {
             TestContract {
-                storage: TestStorage::new()
+                storage: TestStorage::new(),
             }
         }
     }
@@ -474,7 +474,7 @@ mod tests {
         let owner_of_second_token_id = contract.owner_of(ali_second_token_id);
         assert_eq!(owner_of_second_token_id.unwrap(), bob);
     }
-    
+
     #[test]
     fn test_transfer_many_tokens() {
         let mut contract = TestContract::new();
@@ -524,14 +524,17 @@ mod tests {
 
         contract.mint_one(ali, URI::from("0x12af"));
         let token_id: TokenId = contract.tokens(ali)[0].clone();
-        
+
         let token_uref: URef = contract.detach(ali, token_id.clone()).unwrap();
         assert_eq!(contract.balance_of(ali), U256::zero());
         assert_eq!(contract.total_supply(), U256::one());
         assert!(contract.tokens(ali).is_empty());
 
         assert_eq!(contract.token_id(token_uref.clone()), token_id.clone());
-        assert_eq!(contract.token_uri(token_id.clone()).unwrap(), URI::from("0x12af"));
+        assert_eq!(
+            contract.token_uri(token_id.clone()).unwrap(),
+            URI::from("0x12af")
+        );
 
         contract.attach(token_uref, bob);
         assert_eq!(contract.balance_of(bob), U256::one());

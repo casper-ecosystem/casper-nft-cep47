@@ -12,6 +12,19 @@ fn test_deploy() {
 }
 
 #[test]
+fn test_token_uri() {
+    let mut contract = CasperCEP47Contract::deploy();
+    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let token_uri = URI::from("MonaLisa");
+    contract.mint_one(ali, token_uri.clone());
+
+    let ali_tokens: Vec<TokenId> = contract.tokens(ali);
+    let ali_token_uri = contract.token_uri(ali_tokens[0].clone());
+
+    assert_eq!(ali_token_uri, Some(token_uri));
+}
+
+#[test]
 fn test_mint_one() {
     let mut contract = CasperCEP47Contract::deploy();
     let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();

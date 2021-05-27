@@ -109,6 +109,10 @@ impl CasperCEP47Contract {
             .unwrap_or_default()
     }
 
+    pub fn token_uri(&self, token_id: TokenId) -> Option<URI> {
+        self.query_contract(uri_key(&token_id).as_str())
+    }
+
     pub fn mint_one(&mut self, recipient: PublicKey, token_uri: URI) {
         self.call(
             "mint_one",

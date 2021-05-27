@@ -262,6 +262,22 @@ pub extern "C" fn transfer_all_tokens() {
     contract.transfer_all_tokens(sender, recipient);
 }
 
+#[no_mangle]
+pub extern "C" fn attach() {
+    let token_uref: URef = runtime::get_named_arg("token_uref");
+    let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let mut contract = CasperCEP47Contract::new();
+    contract.attach(token_uref, recipient);
+}
+
+#[no_mangle]
+pub extern "C" fn detach() {
+    let owner: PublicKey = runtime::get_named_arg("owner");
+    let token_id: TokenId = runtime::get_named_arg("token_id");
+    let mut contract = CasperCEP47Contract::new();
+    contract.detach(owner, token_id);
+}
+
 pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints {
     let secure = if let Some(contract_package_hash) = package_hash {
         let deployer_group = storage::create_contract_user_group(
@@ -377,6 +393,24 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         vec![
             Parameter::new("sender", CLType::PublicKey),
             Parameter::new("recipient", CLType::PublicKey),
+        ],
+        CLType::Unit,
+        None,
+    ));
+    entry_points.add_entry_point(endpoint(
+        "attach",
+        vec![
+            Parameter::new("token_uref", CLType::URef),
+            Parameter::new("recipient", CLType::PublicKey),
+        ],
+        CLType::Unit,
+        None,
+    ));
+    entry_points.add_entry_point(endpoint(
+        "detach",
+        vec![
+            Parameter::new("owner", CLType::PublicKey),
+            Parameter::new("token_id", CLType::String),
         ],
         CLType::Unit,
         None,

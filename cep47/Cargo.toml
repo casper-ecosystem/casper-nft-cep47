@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 contract = { package = "casper-contract", version="1.1.1" }
 types = { package = "casper-types", version="1.1.1" }
+rand = { version="0.8", default-features=false }
 
 [[bin]]
 name = "cep47"

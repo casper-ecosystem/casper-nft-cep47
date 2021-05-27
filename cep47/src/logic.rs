@@ -155,7 +155,7 @@ trait CEP47Storage {
 
 #[cfg(test)]
 mod tests {
-    use contract::contract_api::storage;
+    use rand::Rng;
     use types::AccessRights;
 
     use super::{
@@ -300,8 +300,9 @@ mod tests {
         }
 
         fn new_uref(&mut self, token_id: TokenId) -> Option<URef> {
-            let uref = storage::new_uref(token_id.clone());
-            uref.with_access_rights(AccessRights::READ_ADD_WRITE);
+            let mut rng = rand::thread_rng();
+            let val: [u8; 32] = rng.gen();
+            let uref = URef::new(val, AccessRights::READ_ADD_WRITE);
             if self.urefs.contains_key(&uref) {
                 None
             } else {

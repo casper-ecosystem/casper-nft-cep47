@@ -1,7 +1,7 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
     account::AccountHash, bytesrepr::FromBytes, runtime_args, AsymmetricType, CLTyped, PublicKey,
-    RuntimeArgs, U256, U512,
+    RuntimeArgs, U256, U512, URef
 };
 
 pub mod token_cfg {
@@ -191,7 +191,7 @@ impl CasperCEP47Contract {
         );
     }
 
-    pub fn detach(&mut self, owner: PublicKey, recipient: String) {
+    pub fn detach(&mut self, owner: PublicKey, token_id: String) {
         self.call(
             "detach",
             runtime_args! {

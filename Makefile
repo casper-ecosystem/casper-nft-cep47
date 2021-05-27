@@ -13,13 +13,15 @@ copy-wasm-file-to-test:
 test: build-contract copy-wasm-file-to-test test-only
 
 clippy:
-	cargo clippy --all-targets --all -- -D warnings -A renamed_and_removed_lints
+	cargo +nightly clippy --all-targets --all -- -D warnings -A renamed_and_removed_lints
 
 check-lint: clippy
 	cargo fmt --all -- --check
 
-lint: clippy
+format:
 	cargo fmt --all
+
+lint: clippy format
 	
 clean:
 	cargo clean

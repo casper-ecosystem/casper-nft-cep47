@@ -152,4 +152,3 @@ pub trait CEP47Storage {
     fn del_uref(&mut self, token_uref: URef) -> Option<TokenId>;
     fn token_id(&self, token_uref: URef) -> Option<TokenId>;
 }
-

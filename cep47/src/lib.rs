@@ -1,12 +1,11 @@
-
 #![allow(unused_imports)]
 #![allow(unused_parens)]
 #![allow(non_snake_case)]
 
 extern crate alloc;
 
-pub mod tests;
 pub mod logic;
+pub mod tests;
 
 use alloc::{
     collections::{BTreeMap, BTreeSet},
@@ -25,8 +24,9 @@ use types::{
     account::AccountHash,
     bytesrepr::{FromBytes, ToBytes},
     contracts::NamedKeys,
-    AccessRights, ApiError, AsymmetricType, CLType, CLTyped, CLValue, EntryPoint, EntryPointAccess,
-    EntryPointType, EntryPoints, Key, Parameter, PublicKey, URef, U256,
+    AccessRights, ApiError, AsymmetricType, CLType, CLTyped, CLValue, ContractPackageHash,
+    EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, Key, Parameter, PublicKey, URef,
+    U256,
 };
 
 type TokenId = String;
@@ -245,9 +245,15 @@ trait CEP47Storage {
         let token_uris: Vec<URI> = vec![token_uri; count.as_usize()];
         self.mint_many(recipient, token_uris);
     }
-    fn new_uref(&mut self, token_id: TokenId) -> Option<URef> {None}
-    fn del_uref(&mut self, token_uref: URef) -> Option<TokenId> {None}
-    fn token_id(&self, token_uref: URef) -> Option<TokenId> {None}
+    fn new_uref(&mut self, token_id: TokenId) -> Option<URef> {
+        None
+    }
+    fn del_uref(&mut self, token_uref: URef) -> Option<TokenId> {
+        None
+    }
+    fn token_id(&self, token_uref: URef) -> Option<TokenId> {
+        None
+    }
 }
 
 struct CasperCEP47Storage {}
@@ -385,14 +391,20 @@ pub extern "C" fn transfer_all_tokens() {
     contract.transfer_all_tokens(sender, recipient);
 }
 
-pub fn deploy(token_name: &str, token_symbol: &str, token_uri: &str, secure: bool) {
-    let tokenName: String = runtime::get_named_arg("token_name");
-    let tokenSymbol: String = runtime::get_named_arg("token_symbol");
-    let tokenURI: URI = runtime::get_named_arg("token_uri");
-    let (contract_package_hash, _) = storage::create_contract_package_at_hash();
-
-    let deployer_group = storage::create_contract_user_group(contract_package_hash, "deployer", 1, BTreeSet::default()).unwrap_or_revert();
-    runtime::put_key("deployer_access", types::Key::URef(deployer_group[0]));
+pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints {
+    let secure = if let Some(contract_package_hash) = package_hash {
+        let deployer_group = storage::create_contract_user_group(
+            contract_package_hash,
+            "deployer",
+            1,
+            BTreeSet::default(),
+        )
+        .unwrap_or_revert();
+        runtime::put_key("deployer_access", types::Key::URef(deployer_group[0]));
+        true
+    } else {
+        false
+    };
 
     let mut entry_points = EntryPoints::new();
     entry_points.add_entry_point(endpoint("name", vec![], CLType::String, None));
@@ -436,7 +448,11 @@ pub fn deploy(token_name: &str, token_symbol: &str, token_uri: &str, secure: boo
             Parameter::new("token_uri", CLType::String),
         ],
         CLType::Unit,
-        if secure {Some("deployer_access")}else{None},
+        if secure {
+            Some("deployer_access")
+        } else {
+            None
+        },
     ));
     entry_points.add_entry_point(endpoint(
         "mint_many",
@@ -445,7 +461,11 @@ pub fn deploy(token_name: &str, token_symbol: &str, token_uri: &str, secure: boo
             Parameter::new("token_uris", CLType::List(Box::new(CLType::String))),
         ],
         CLType::Unit,
-        if secure {Some("deployer_access")}else{None},
+        if secure {
+            Some("deployer_access")
+        } else {
+            None
+        },
     ));
     entry_points.add_entry_point(endpoint(
         "mint_copies",
@@ -455,7 +475,11 @@ pub fn deploy(token_name: &str, token_symbol: &str, token_uri: &str, secure: boo
             Parameter::new("count", CLType::U256),
         ],
         CLType::Unit,
-        if secure {Some("deployer_access")}else{None},
+        if secure {
+            Some("deployer_access")
+        } else {
+            None
+        },
     ));
     entry_points.add_entry_point(endpoint(
         "transfer_token",
@@ -486,6 +510,19 @@ pub fn deploy(token_name: &str, token_symbol: &str, token_uri: &str, secure: boo
         CLType::Unit,
         None,
     ));
+    entry_points
+}
+
+pub fn deploy(
+    token_name: &str,
+    token_symbol: &str,
+    token_uri: &str,
+    entry_points: EntryPoints,
+    contract_package_hash: ContractPackageHash,
+) {
+    let tokenName: String = runtime::get_named_arg("token_name");
+    let tokenSymbol: String = runtime::get_named_arg("token_symbol");
+    let tokenURI: URI = runtime::get_named_arg("token_uri");
 
     let mut named_keys = NamedKeys::new();
     named_keys.insert("name".to_string(), storage::new_uref(tokenName).into());
@@ -496,7 +533,6 @@ pub fn deploy(token_name: &str, token_symbol: &str, token_uri: &str, secure: boo
         storage::new_uref(U256::zero()).into(),
     );
 
-    
     let (contract_hash, _) =
         storage::add_contract_version(contract_package_hash, entry_points, named_keys);
     runtime::put_key("caspercep47_contract", contract_hash.into());
@@ -562,9 +598,9 @@ fn endpoint(name: &str, param: Vec<Parameter>, ret: CLType, access: Option<&str>
         String::from(name),
         param,
         ret,
-        match access{
+        match access {
             None => EntryPointAccess::Public,
-            Some(access_key) => EntryPointAccess::groups(&[access_key])
+            Some(access_key) => EntryPointAccess::groups(&[access_key]),
         },
         EntryPointType::Contract,
     )

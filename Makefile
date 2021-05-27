@@ -8,6 +8,7 @@ test-only:
 	cargo test -p tests
 
 copy-wasm-file-to-test:
+	mkdir -p tests/wasm
 	cp target/wasm32-unknown-unknown/release/cep47.wasm tests/wasm
 
 test: build-contract copy-wasm-file-to-test test-only

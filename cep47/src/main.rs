@@ -22,8 +22,8 @@ use types::{
     account::AccountHash,
     bytesrepr::{FromBytes, ToBytes},
     contracts::NamedKeys,
-    ApiError, AsymmetricType, CLType, CLTyped, CLValue, EntryPoint, EntryPointAccess,
-    EntryPointType, EntryPoints, Parameter, PublicKey, URef, U256,
+    AccessRights, ApiError, AsymmetricType, CLType, CLTyped, CLValue, EntryPoint, EntryPointAccess,
+    EntryPointType, EntryPoints, Key, Parameter, PublicKey, URef, U256,
 };
 
 type TokenId = String;
@@ -131,13 +131,27 @@ trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
     }
 
     // URef releated function.
-    fn detach(&mut self, owner: PublicKey, token_id: TokenId) -> URef {
-        todo!();
-    }
-    fn attach(&mut self, token_uref: URef, recipient: PublicKey) {}
-    fn token_id(&self, token_uref: URef) -> TokenId {
-        todo!();
-    }
+    // fn detach(&mut self, owner: PublicKey, token_id: TokenId) -> Option<URef> {
+    //     let mut tokens = self.storage().get_tokens(owner);
+    //     if !tokens.contains(&token_id) {
+    //         None
+    //     } else {
+    //         tokens.retain(|x| x != &token_id);
+    //         self.storage_mut().set_tokens(owner, tokens);
+    //         self.storage_mut().new_uref(token_id)
+    //     }
+    // }
+
+    // fn attach(&mut self, token_uref: URef, recipient: PublicKey) {
+    //     let token_id = self.storage_mut().del_uref(token_uref).unwrap();
+    //     let mut tokens = self.storage().get_tokens(recipient);
+    //     tokens.push(token_id);
+    //     self.storage_mut().set_tokens(recipient, tokens);
+    // }
+
+    // fn token_id(&self, token_uref: URef) -> TokenId {
+    //     self.storage().token_id(token_uref).unwrap()
+    // }
 }
 
 trait CEP47Storage {
@@ -216,18 +230,21 @@ trait CEP47Storage {
             set_key(&uri_key(&token_id), token_uri);
             set_key(&owner_key(&token_id), recipient);
         }
+        recipient_balance = recipient_balance + U256::from(token_uris.len() as u64);
         set_key(
             &balance_key(&recipient.to_account_hash()),
             recipient_balance,
         );
         set_key(&token_key(&recipient.to_account_hash()), recipient_tokens);
+        set_key("total_supply", total_supply);
     }
     fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256) {
         let token_uris: Vec<URI> = vec![token_uri; count.as_usize()];
         self.mint_many(recipient, token_uris);
     }
-    // fn new_uref(&mut self, token_id: TokenId) -> URef;
-    // fn del_uref(&mut self, token_uref: URef);
+    // fn new_uref(&mut self, token_id: TokenId) -> Option<URef> {}
+    // fn del_uref(&mut self, token_uref: URef) -> Option<TokenId> {}
+    // fn token_id(&self, token_uref: URef) -> Option<TokenId> {}
 }
 
 struct CasperCEP47Storage {}
@@ -457,7 +474,10 @@ pub extern "C" fn call() {
     named_keys.insert("name".to_string(), storage::new_uref(tokenName).into());
     named_keys.insert("symbol".to_string(), storage::new_uref(tokenSymbol).into());
     named_keys.insert("uri".to_string(), storage::new_uref(tokenURI).into());
-    named_keys.insert("total_supply".to_string(), storage::new_uref(0u8).into());
+    named_keys.insert(
+        "total_supply".to_string(),
+        storage::new_uref(U256::zero()).into(),
+    );
 
     let (contract_package_hash, _) = storage::create_contract_package_at_hash();
     let (contract_hash, _) =
@@ -497,7 +517,7 @@ fn set_key<T: ToBytes + CLTyped>(name: &str, value: T) {
 
 fn remove_key(name: &str) {
     match runtime::get_key(name) {
-        Some(key) => {
+        Some(_) => {
             runtime::remove_key(name);
         }
         None => {}

@@ -180,6 +180,26 @@ impl CasperCEP47Contract {
             },
         );
     }
+
+    pub fn attach(&mut self, token_uref: URef, recipient: PublicKey) {
+        self.call(
+            "attach",
+            runtime_args! {
+                "token_uref" => token_uref,
+                "recipient" => recipient
+            },
+        );
+    }
+
+    pub fn detach(&mut self, owner: PublicKey, recipient: String) {
+        self.call(
+            "detach",
+            runtime_args! {
+                "owner" => owner,
+                "token_id" => token_id
+            },
+        );
+    }
 }
 
 fn balance_key(account: &AccountHash) -> String {

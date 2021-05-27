@@ -1,7 +1,7 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
     account::AccountHash, bytesrepr::FromBytes, runtime_args, AsymmetricType, CLTyped, PublicKey,
-    RuntimeArgs, U256, U512, URef
+    RuntimeArgs, URef, U256, U512,
 };
 
 pub mod token_cfg {

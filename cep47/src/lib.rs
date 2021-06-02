@@ -77,16 +77,16 @@ impl CEP47Storage for CasperCEP47Storage {
         }
     }
     fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
-        let owner_prev_balance = self.balance_of(owner);
+        let owner_prev_balance = self.balance_of(owner.clone());
         let owner_new_balance = U256::from(token_ids.len() as u64);
         let prev_total_supply = self.total_supply();
 
-        let owner_tokens = self.get_tokens(owner);
+        let owner_tokens = self.get_tokens(owner.clone());
         for token_id in owner_tokens.clone() {
             remove_key(&owner_key(&token_id));
         }
         for token_id in token_ids.clone() {
-            set_key(&owner_key(&token_id), owner);
+            set_key(&owner_key(&token_id), owner.clone());
         }
         set_key(&token_key(&owner.to_account_hash()), token_ids);
         set_key(&balance_key(&owner.to_account_hash()), owner_new_balance);
@@ -96,8 +96,8 @@ impl CEP47Storage for CasperCEP47Storage {
         );
     }
     fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>) {
-        let mut recipient_tokens = self.get_tokens(recipient);
-        let mut recipient_balance = self.balance_of(recipient);
+        let mut recipient_tokens = self.get_tokens(recipient.clone());
+        let mut recipient_balance = self.balance_of(recipient.clone());
         let mut total_supply = self.total_supply();
         let uri = self.uri();
 
@@ -110,7 +110,7 @@ impl CEP47Storage for CasperCEP47Storage {
             recipient_tokens.push(token_id.clone());
             total_supply = total_supply + 1;
             set_key(&uri_key(&token_id), token_uri);
-            set_key(&owner_key(&token_id), recipient);
+            set_key(&owner_key(&token_id), recipient.clone());
         }
         recipient_balance = recipient_balance + U256::from(token_uris.len() as u64);
         set_key(

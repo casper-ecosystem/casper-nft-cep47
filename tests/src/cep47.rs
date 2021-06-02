@@ -26,7 +26,7 @@ impl CasperCEP47Contract {
     pub fn deploy() -> Self {
         let account = PublicKey::ed25519_from_bytes([1u8; 32]).unwrap();
         let mut context = TestContextBuilder::new()
-            .with_public_key(account, U512::from(500_000_000_000_000_000u64))
+            .with_public_key(account.clone(), U512::from(500_000_000_000_000_000u64))
             .build();
         let session_code = Code::from("cep47.wasm");
         let session_args = runtime_args! {

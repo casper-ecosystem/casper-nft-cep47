@@ -3,22 +3,20 @@ use casper_types::{account::AccountHash, runtime_args, AsymmetricType, PublicKey
 
 pub struct MarketTest {
     pub market_hash: Hash,
-    pub account: PublicKey,
 }
 
 impl MarketTest {
-    pub fn deploy(context: &mut TestContext) -> Self {
-        let admin = PublicKey::ed25519_from_bytes([1u8; 32]).unwrap();
+    pub fn deploy(context: &mut TestContext, deployer: AccountHash) -> Self {
         let session_code = Code::from("marketplace.wasm");
         let session_args = runtime_args! {};
         let session = SessionBuilder::new(session_code, session_args)
-            .with_address(admin.to_account_hash())
-            .with_authorization_keys(&[admin.to_account_hash()])
+            .with_address(deployer)
+            .with_authorization_keys(&[deployer])
             .build();
         context.run(session);
         let market_hash = context
             .query(
-                admin.to_account_hash(),
+                deployer,
                 &["marketplace_contract_package_hash".to_string()],
             )
             .unwrap()
@@ -26,7 +24,6 @@ impl MarketTest {
             .unwrap();
         Self {
             market_hash,
-            account: admin,
         }
     }
 
@@ -45,15 +42,15 @@ impl MarketTest {
         context.run(session);
     }
 
-    pub fn call_test(&self, context: &mut TestContext) {
+    pub fn call_test(&self, context: &mut TestContext, account: &PublicKey, seller: &PublicKey) {
         let session_code = Code::from("send_tokens.wasm");
         let session_args = runtime_args! {
             "marketplace_contract" => self.market_hash,
-            "seller" => self.account.clone(),
+            "seller" => seller.clone(),
         };
         let session = SessionBuilder::new(session_code, session_args)
-            .with_address(self.account.to_account_hash())
-            .with_authorization_keys(&[self.account.to_account_hash()])
+            .with_address(account.to_account_hash())
+            .with_authorization_keys(&[account.to_account_hash()])
             .build();
         context.run(session);
     }

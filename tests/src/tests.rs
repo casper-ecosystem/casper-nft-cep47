@@ -142,12 +142,11 @@ fn test_transfer_all_tokens() {
 #[test]
 fn test_marketplace() {
     let mut contract = CasperCEP47Contract::deploy();
-    let ali: PublicKey = SecretKey::ed25519_from_bytes([3u8; 32]).unwrap().into();
-    let bob: PublicKey = SecretKey::ed25519_from_bytes([5u8; 32]).unwrap().into();
     let token_uris: Vec<URI> = vec![
         URI::from("Casper Golden Card"),
         URI::from("Casper Silver Card"),
     ];
-    let market = MarketTest::deploy(&mut contract.context);
-    market.call_test(&mut contract.context);
+    let market = MarketTest::deploy(&mut contract.context, contract.admin.to_account_hash());
+    market.call_test(&mut contract.context, &contract.ali, &contract.admin);
+    contract.mint_many(contract.ali.clone(), token_uris);
 }

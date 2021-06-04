@@ -17,11 +17,18 @@ pub extern "C" fn call() {
     )
     .unwrap();
 
-    let _: () = runtime::call_contract(
+    let offer_key: String = runtime::call_contract(
         marketplace_contract,
         "put_on_sale_test",
         runtime_args! {
             "seller" => seller,
+        },
+    );
+    let _: () = runtime::call_contract(
+        marketplace_contract,
+        "test_buy",
+        runtime_args! {
+            // "offer_key" => offer_key,
             "purse" => transport_purse
         },
     );

@@ -3,12 +3,15 @@ prepare:
 
 build-contract:
 	cargo +nightly build --release -p cep47 --target wasm32-unknown-unknown
+	cargo +nightly build --release -p marketplace --target wasm32-unknown-unknown
 
 test-only:
 	cargo +nightly test --workspace
 
 copy-wasm-file-to-test:
 	cp target/wasm32-unknown-unknown/release/cep47.wasm tests/wasm
+	cp target/wasm32-unknown-unknown/release/marketplace.wasm tests/wasm
+	cp target/wasm32-unknown-unknown/release/send_tokens.wasm tests/wasm
 
 test: build-contract copy-wasm-file-to-test test-only
 
@@ -26,3 +29,5 @@ lint: clippy format
 clean:
 	cargo clean
 	rm -rf tests/wasm/cep47.wasm
+	rm -rf tests/wasm/marketplace.wasm
+	rm -rf tests/wasm/send_tokens.wasm

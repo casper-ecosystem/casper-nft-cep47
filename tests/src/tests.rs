@@ -1,4 +1,5 @@
 use crate::cep47::{token_cfg, CasperCEP47Contract, TokenId, URI};
+use crate::market::MarketTest;
 use casper_types::{AsymmetricType, PublicKey, SecretKey, U256};
 
 #[test]
@@ -147,4 +148,16 @@ fn test_attach_and_detach() {
     contract.mint_one(ali.clone(), token_uri);
     let ali_token_id: TokenId = contract.tokens(ali.clone())[0].clone();
     contract.detach(ali.clone(), ali_token_id.clone());
+}
+
+#[test]
+fn test_marketplace() {
+    let mut contract = CasperCEP47Contract::deploy();
+    let token_uris: Vec<URI> = vec![
+        URI::from("Casper Golden Card"),
+        URI::from("Casper Silver Card"),
+    ];
+    let market = MarketTest::deploy(&mut contract.context, contract.admin.to_account_hash());
+    market.call_test(&mut contract.context, &contract.ali, &contract.admin);
+    contract.mint_many(contract.ali.clone(), token_uris);
 }

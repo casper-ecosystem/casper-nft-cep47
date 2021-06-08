@@ -1,6 +1,6 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
-    account::AccountHash, bytesrepr::FromBytes, runtime_args, AsymmetricType, CLTyped, PublicKey,
+    account::AccountHash, bytesrepr::FromBytes, runtime_args, AsymmetricType, SecretKey, CLTyped, PublicKey,
     RuntimeArgs, URef, U256, U512,
 };
 
@@ -16,7 +16,9 @@ pub const CASPERCEP47_CONTRACT_HASH: &str = "caspercep47_contract_hash";
 pub struct CasperCEP47Contract {
     pub context: TestContext,
     pub caspercep47_hash: Hash,
-    pub account: AccountHash,
+    pub admin: PublicKey,
+    pub ali: PublicKey,
+    pub bob: PublicKey, 
 }
 
 pub type TokenId = String;
@@ -24,9 +26,13 @@ pub type URI = String;
 
 impl CasperCEP47Contract {
     pub fn deploy() -> Self {
-        let account = PublicKey::ed25519_from_bytes([1u8; 32]).unwrap();
+        let admin: PublicKey = SecretKey::ed25519_from_bytes([1u8; 32]).unwrap().into();
+        let ali: PublicKey = SecretKey::ed25519_from_bytes([3u8; 32]).unwrap().into();
+        let bob: PublicKey = SecretKey::ed25519_from_bytes([5u8; 32]).unwrap().into();
         let mut context = TestContextBuilder::new()
-            .with_public_key(account.clone(), U512::from(500_000_000_000_000_000u64))
+            .with_public_key(admin.clone(), U512::from(500_000_000_000_000_000u64))
+            .with_public_key(ali.clone(), U512::from(500_000_000_000_000_000u64))
+            .with_public_key(bob.clone(), U512::from(500_000_000_000_000_000u64))
             .build();
         let session_code = Code::from("example-token.wasm");
         let session_args = runtime_args! {
@@ -35,13 +41,13 @@ impl CasperCEP47Contract {
             "token_uri" => token_cfg::URI
         };
         let session = SessionBuilder::new(session_code, session_args)
-            .with_address(account.to_account_hash())
-            .with_authorization_keys(&[account.to_account_hash()])
+            .with_address(admin.to_account_hash())
+            .with_authorization_keys(&[admin.to_account_hash()])
             .build();
         context.run(session);
         let caspercep47_hash = context
             .query(
-                account.to_account_hash(),
+                admin.to_account_hash(),
                 &[CASPERCEP47_CONTRACT_HASH.to_string()],
             )
             .unwrap()
@@ -51,22 +57,24 @@ impl CasperCEP47Contract {
         Self {
             context,
             caspercep47_hash,
-            account: account.to_account_hash(),
+            admin: admin,
+            ali: ali,
+            bob: bob
         }
     }
 
     fn call(&mut self, method: &str, args: RuntimeArgs) {
         let code = Code::Hash(self.caspercep47_hash, method.to_string());
         let session = SessionBuilder::new(code, args)
-            .with_address(self.account)
-            .with_authorization_keys(&[self.account])
+            .with_address(self.admin.to_account_hash())
+            .with_authorization_keys(&[self.admin.to_account_hash()])
             .build();
         self.context.run(session);
     }
 
     fn query_contract<T: CLTyped + FromBytes>(&self, name: &str) -> Option<T> {
         match self.context.query(
-            self.account,
+            self.admin.to_account_hash(),
             &[CASPERCEP47_CONTRACT.to_string(), name.to_string()],
         ) {
             Err(_) => None,

@@ -1,9 +1,9 @@
 [workspace]
 
 members = [
-    "cep47",
 	"tests",
-    "example-token"
+    "example-token",
+    "marketplace"
 ]
 
 [profile.release]

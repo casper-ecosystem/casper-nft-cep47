@@ -9,6 +9,7 @@ test-only:
 	cargo test --workspace
 
 copy-wasm-file-to-test:
+	mkdir -p tests/wasm
 	cp target/wasm32-unknown-unknown/release/example-token.wasm tests/wasm
 	cp target/wasm32-unknown-unknown/release/marketplace.wasm tests/wasm
 	cp target/wasm32-unknown-unknown/release/send_tokens.wasm tests/wasm

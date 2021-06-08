@@ -1,5 +1,11 @@
 #![no_main]
-extern crate cep47;
+// extern crate cep47;
+// use cep47::endpoints::aa as other_aa;
+
+// #[no_mangle]
+// pub fn aa() {
+
+// }
 
 #[no_mangle]
 pub extern "C" fn call() {

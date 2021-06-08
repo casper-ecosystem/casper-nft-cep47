@@ -15,16 +15,11 @@ impl MarketTest {
             .build();
         context.run(session);
         let market_hash = context
-            .query(
-                deployer,
-                &["marketplace_contract_package_hash".to_string()],
-            )
+            .query(deployer, &["marketplace_contract_package_hash".to_string()])
             .unwrap()
             .into_t()
             .unwrap();
-        Self {
-            market_hash,
-        }
+        Self { market_hash }
     }
 
     fn call(

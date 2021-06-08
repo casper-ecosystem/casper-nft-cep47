@@ -5,7 +5,7 @@
 extern crate alloc;
 
 pub mod logic;
-pub mod tests;
+pub mod logic_tests;
 
 use alloc::{
     collections::{BTreeMap, BTreeSet},

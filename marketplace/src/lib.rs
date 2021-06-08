@@ -12,7 +12,7 @@ use alloc::{
 };
 use contract::contract_api::runtime::revert;
 use contract::{
-    contract_api::{runtime, storage, system, account},
+    contract_api::{account, runtime, storage, system},
     unwrap_or_revert::UnwrapOrRevert,
 };
 use core::convert::TryInto;
@@ -41,10 +41,13 @@ pub extern "C" fn put_on_sale_test() {
 
 #[no_mangle]
 pub extern "C" fn test_buy() {
-    let offer_key: String = "018a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c_test_order".to_string();
+    let offer_key: String =
+        "018a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c_test_order".to_string();
     let purse: URef = runtime::get_named_arg("purse");
     let offer: Offer = Offer::load(&offer_key);
-    if system::get_purse_balance(purse).unwrap_or_revert() == offer.price && runtime::get_caller()!=offer.seller.to_account_hash(){
+    if system::get_purse_balance(purse).unwrap_or_revert() == offer.price
+        && runtime::get_caller() != offer.seller.to_account_hash()
+    {
         system::transfer_from_purse_to_account(
             purse,
             offer.seller.to_account_hash(),
@@ -55,7 +58,6 @@ pub extern "C" fn test_buy() {
         remove_key(&offer_key);
     }
 }
-
 
 #[no_mangle]
 pub extern "C" fn put_on_sale() {
@@ -73,7 +75,7 @@ pub extern "C" fn buy() {
     let offer_key: String = runtime::get_named_arg("offer_key");
     let payment: U512 = runtime::get_named_arg("payment");
     let offer: Offer = Offer::load(&offer_key);
-    if payment == offer.price && runtime::get_caller()!=offer.seller.to_account_hash(){
+    if payment == offer.price && runtime::get_caller() != offer.seller.to_account_hash() {
         system::transfer_to_account(offer.seller.to_account_hash(), payment, None)
             .unwrap_or_revert();
         remove_key(&offer_key);
@@ -92,7 +94,7 @@ pub extern "C" fn get_price() {
 pub extern "C" fn cancel() {
     let offer_key: String = runtime::get_named_arg("offer_key");
     let offer: Offer = Offer::load(&offer_key);
-    if runtime::get_caller()==offer.seller.to_account_hash(){
+    if runtime::get_caller() == offer.seller.to_account_hash() {
         remove_key(&offer_key);
     }
 }
@@ -126,9 +128,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     ));
     entry_points.add_entry_point(endpoint(
         "put_on_sale_test",
-        vec![
-            Parameter::new("seller", CLType::PublicKey),
-        ],
+        vec![Parameter::new("seller", CLType::PublicKey)],
         CLType::String,
         None,
     ));
@@ -143,29 +143,23 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     ));
     entry_points.add_entry_point(endpoint(
         "test_buy",
-        vec![
-            Parameter::new("payment", CLType::U512),
-        ],
+        vec![Parameter::new("payment", CLType::U512)],
         CLType::URef,
         None,
     ));
     entry_points.add_entry_point(endpoint(
         "cancel",
-        vec![
-            Parameter::new("offer_key", CLType::String),
-        ],
+        vec![Parameter::new("offer_key", CLType::String)],
         CLType::Unit,
         None,
     ));
     entry_points.add_entry_point(endpoint(
         "get_price",
-        vec![
-            Parameter::new("offer_key", CLType::String),
-        ],
+        vec![Parameter::new("offer_key", CLType::String)],
         CLType::U512,
         None,
     ));
-    
+
     entry_points
 }
 

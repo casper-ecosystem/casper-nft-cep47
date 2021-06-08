@@ -11,3 +11,6 @@ rand = { version="0.8", default-features=false }
 
 [lib]
 name = "cep47"
+
+[features]
+default = ["casper-contract/std", "casper-types/std"]

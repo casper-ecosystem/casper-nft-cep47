@@ -1,7 +1,7 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
-    account::AccountHash, bytesrepr::FromBytes, runtime_args, AsymmetricType, SecretKey, CLTyped, PublicKey,
-    RuntimeArgs, URef, U256, U512,
+    account::AccountHash, bytesrepr::FromBytes, runtime_args, AsymmetricType, CLTyped, PublicKey,
+    RuntimeArgs, SecretKey, URef, U256, U512,
 };
 
 pub mod token_cfg {
@@ -18,7 +18,7 @@ pub struct CasperCEP47Contract {
     pub caspercep47_hash: Hash,
     pub admin: PublicKey,
     pub ali: PublicKey,
-    pub bob: PublicKey, 
+    pub bob: PublicKey,
 }
 
 pub type TokenId = String;
@@ -34,7 +34,7 @@ impl CasperCEP47Contract {
             .with_public_key(ali.clone(), U512::from(500_000_000_000_000_000u64))
             .with_public_key(bob.clone(), U512::from(500_000_000_000_000_000u64))
             .build();
-        let session_code = Code::from("example-token.wasm");
+        let session_code = Code::from("dragons-nft.wasm");
         let session_args = runtime_args! {
             "token_name" => token_cfg::NAME,
             "token_symbol" => token_cfg::SYMBOL,
@@ -59,7 +59,7 @@ impl CasperCEP47Contract {
             caspercep47_hash,
             admin: admin,
             ali: ali,
-            bob: bob
+            bob: bob,
         }
     }
 
@@ -189,26 +189,6 @@ impl CasperCEP47Contract {
             runtime_args! {
                 "sender" => sender,
                 "recipient" => recipient
-            },
-        );
-    }
-
-    pub fn attach(&mut self, token_uref: URef, recipient: PublicKey) {
-        self.call(
-            "attach",
-            runtime_args! {
-                "token_uref" => token_uref,
-                "recipient" => recipient
-            },
-        );
-    }
-
-    pub fn detach(&mut self, owner: PublicKey, token_id: String) {
-        self.call(
-            "detach",
-            runtime_args! {
-                "owner" => owner,
-                "token_id" => token_id
             },
         );
     }

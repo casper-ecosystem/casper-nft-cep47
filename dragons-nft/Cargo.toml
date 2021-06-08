@@ -1,5 +1,5 @@
 [package]
-name = "example-token"
+name = "dragons-nft"
 version = "0.1.0"
 authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"
@@ -12,7 +12,7 @@ types = { package="casper-types", version = "1.2.0" }
 cep47 = { path="../cep47" }
 
 [[bin]]
-name = "example-token"
+name = "dragons-nft"
 path = "src/main.rs"
 bench = false
 doctest = false

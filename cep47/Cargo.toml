@@ -5,16 +5,9 @@ authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-contract = { package = "casper-contract", version="1.2.0" }
-types = { package = "casper-types", version="1.2.0" }
+casper-contract = "1.2.0"
+casper-types = "1.2.0"
 rand = { version="0.8", default-features=false }
 
-[[bin]]
+[lib]
 name = "cep47"
-path = "src/main.rs"
-bench = false
-doctest = false
-test = false
-
-[features]
-default = ["contract/std", "types/std"]

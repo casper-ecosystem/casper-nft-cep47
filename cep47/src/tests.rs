@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use casper_types::AccessRights;
     use rand::Rng;
-    use types::AccessRights;
 
     use crate::{
         AsymmetricType, CEP47Contract, CEP47Storage, PublicKey, TokenId, URef, WithStorage, U256,
@@ -283,7 +283,9 @@ mod tests {
         let ali_first_token_uri: URI = contract.token_uri(ali_first_token_id.clone()).unwrap();
         assert_eq!(ali_first_token_uri, URI::from("Casper Fan URI"));
 
-        contract.transfer_token(ali.clone(), bob.clone(), ali_first_token_id.clone());
+        let transfer_res =
+            contract.transfer_token(ali.clone(), bob.clone(), ali_first_token_id.clone());
+        assert!(transfer_res.is_ok());
         ali_balance = contract.balance_of(ali);
         bob_balance = contract.balance_of(bob.clone());
         assert_eq!(ali_balance, U256::from(0));
@@ -354,11 +356,12 @@ mod tests {
         assert_eq!(ali_second_token_uri, URI::from("Banana URI"));
         assert_eq!(ali_third_token_uri, URI::from("Casper Fan URI"));
 
-        contract.transfer_many_tokens(
+        let transfer_res = contract.transfer_many_tokens(
             ali.clone(),
             bob.clone(),
             vec![ali_second_token_id.clone(), ali_third_token_id.clone()],
         );
+        assert!(transfer_res.is_ok());
 
         ali_balance = contract.balance_of(ali);
         bob_balance = contract.balance_of(bob.clone());

@@ -11,17 +11,11 @@ use alloc::{
     collections::{BTreeMap, BTreeSet},
     string::String,
 };
-use contract::{
+use casper_contract::{
     contract_api::{runtime, storage},
     unwrap_or_revert::UnwrapOrRevert,
 };
-use core::convert::TryInto;
-use logic::{CEP47Contract, CEP47Storage, TokenId, WithStorage, URI};
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-};
-use types::{
+use casper_types::{
     account::AccountHash,
     bytesrepr::{FromBytes, ToBytes},
     contracts::NamedKeys,
@@ -29,8 +23,14 @@ use types::{
     EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, Key, Parameter, PublicKey, URef,
     U256,
 };
+use core::convert::TryInto;
+use logic::{CEP47Contract, CEP47Storage, TokenId, WithStorage, URI};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
 
-struct CasperCEP47Storage {}
+pub struct CasperCEP47Storage {}
 impl CasperCEP47Storage {
     pub fn new() -> CasperCEP47Storage {
         CasperCEP47Storage {}
@@ -125,16 +125,43 @@ impl CEP47Storage for CasperCEP47Storage {
         self.mint_many(recipient, token_uris);
     }
     fn new_uref(&mut self, token_id: TokenId) -> Option<URef> {
-        None
+        let value_ref =
+            storage::new_uref(token_id).with_access_rights(AccessRights::READ_ADD_WRITE);
+        let value_key = uref_key(&value_ref);
+        let prev_value_ref = get_key::<URef>(&value_key);
+        if prev_value_ref.is_some() {
+            None
+        } else {
+            set_key(&value_key, value_ref);
+            Some(value_ref)
+        }
     }
     fn del_uref(&mut self, token_uref: URef) -> Option<TokenId> {
-        None
+        let token_id = self.token_id(token_uref);
+        if token_id.is_some() {
+            let value_key = uref_key(&token_uref);
+            remove_key(&value_key);
+            token_id
+        } else {
+            None
+        }
     }
     fn token_id(&self, token_uref: URef) -> Option<TokenId> {
-        None
+        let value_key = uref_key(&token_uref);
+        let prev_value_ref = get_key::<URef>(&value_key);
+        if prev_value_ref.is_some() {
+            let res = storage::read::<TokenId>(prev_value_ref.unwrap());
+            if res.is_err() {
+                None
+            } else {
+                res.unwrap()
+            }
+        } else {
+            None
+        }
     }
 }
-struct CasperCEP47Contract {
+pub struct CasperCEP47Contract {
     storage: CasperCEP47Storage,
 }
 impl CasperCEP47Contract {
@@ -153,11 +180,6 @@ impl WithStorage<CasperCEP47Storage> for CasperCEP47Contract {
     }
 }
 impl CEP47Contract<CasperCEP47Storage> for CasperCEP47Contract {}
-/**
- * ApiError::User(1) - The number of piece is out or range.
- * ApiError::User(2) - The piece of NFT is already minted and owned by someone.
- * ApiError::User(3) - The piece of NFT is not minted yet.
- */
 
 #[no_mangle]
 pub extern "C" fn name() {
@@ -242,7 +264,8 @@ pub extern "C" fn transfer_token() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let mut contract = CasperCEP47Contract::new();
-    contract.transfer_token(sender, recipient, token_id);
+    let res = contract.transfer_token(sender, recipient, token_id);
+    res.unwrap_or_revert();
 }
 
 #[no_mangle]
@@ -251,7 +274,8 @@ pub extern "C" fn transfer_many_tokens() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
     let token_ids: Vec<TokenId> = runtime::get_named_arg("token_ids");
     let mut contract = CasperCEP47Contract::new();
-    contract.transfer_many_tokens(sender, recipient, token_ids);
+    let res = contract.transfer_many_tokens(sender, recipient, token_ids);
+    res.unwrap_or_revert();
 }
 
 #[no_mangle]
@@ -275,7 +299,8 @@ pub extern "C" fn detach() {
     let owner: PublicKey = runtime::get_named_arg("owner");
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let mut contract = CasperCEP47Contract::new();
-    contract.detach(owner, token_id);
+    let res = contract.detach(owner, token_id.clone()); // For test purpose
+    set_key(&test_uref_key(&token_id), res);
 }
 
 pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints {
@@ -287,7 +312,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
             BTreeSet::default(),
         )
         .unwrap_or_revert();
-        runtime::put_key("deployer_access", types::Key::URef(deployer_group[0]));
+        runtime::put_key("deployer_access", Key::URef(deployer_group[0]));
         true
     } else {
         false
@@ -441,10 +466,6 @@ pub fn deploy(
     runtime::put_key("caspercep47_contract_hash", contract_hash_pack.into());
 }
 
-fn ret<T: CLTyped + ToBytes>(value: T) {
-    runtime::ret(CLValue::from_t(value).unwrap_or_revert())
-}
-
 fn get_key<T: FromBytes + CLTyped>(name: &str) -> Option<T> {
     match runtime::get_key(name) {
         None => None,
@@ -490,11 +511,24 @@ fn uri_key(token_id: &TokenId) -> String {
     format!("uris_{}", token_id)
 }
 
+fn uref_key(uref: &URef) -> String {
+    format!("uref_{}", uref)
+}
+
+fn test_uref_key(token_id: &TokenId) -> String {
+    format!("turef_{}", token_id)
+}
+
 fn token_key(account: &AccountHash) -> String {
     format!("tokens_{}", account)
 }
 
-fn endpoint(name: &str, param: Vec<Parameter>, ret: CLType, access: Option<&str>) -> EntryPoint {
+pub fn endpoint(
+    name: &str,
+    param: Vec<Parameter>,
+    ret: CLType,
+    access: Option<&str>,
+) -> EntryPoint {
     EntryPoint::new(
         String::from(name),
         param,
@@ -505,4 +539,8 @@ fn endpoint(name: &str, param: Vec<Parameter>, ret: CLType, access: Option<&str>
         },
         EntryPointType::Contract,
     )
+}
+
+pub fn ret<T: CLTyped + ToBytes>(value: T) {
+    runtime::ret(CLValue::from_t(value).unwrap_or_revert())
 }

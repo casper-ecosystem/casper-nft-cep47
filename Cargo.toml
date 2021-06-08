@@ -2,7 +2,8 @@
 
 members = [
     "cep47",
-	"tests"
+	"tests",
+    "example-token"
 ]
 
 [profile.release]

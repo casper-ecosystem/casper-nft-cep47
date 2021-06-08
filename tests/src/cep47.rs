@@ -28,7 +28,7 @@ impl CasperCEP47Contract {
         let mut context = TestContextBuilder::new()
             .with_public_key(account.clone(), U512::from(500_000_000_000_000_000u64))
             .build();
-        let session_code = Code::from("cep47.wasm");
+        let session_code = Code::from("example-token.wasm");
         let session_args = runtime_args! {
             "token_name" => token_cfg::NAME,
             "token_symbol" => token_cfg::SYMBOL,
@@ -111,6 +111,10 @@ impl CasperCEP47Contract {
 
     pub fn token_uri(&self, token_id: TokenId) -> Option<URI> {
         self.query_contract(uri_key(&token_id).as_str())
+    }
+
+    pub fn token_uref(&self, token_id: &TokenId) -> Option<URef> {
+        self.query_contract(test_uref_key(&token_id).as_str())
     }
 
     pub fn mint_one(&mut self, recipient: PublicKey, token_uri: URI) {
@@ -216,4 +220,8 @@ fn uri_key(token_id: &TokenId) -> String {
 
 fn token_key(account: &AccountHash) -> String {
     format!("tokens_{}", account)
+}
+
+fn test_uref_key(token_id: &TokenId) -> String {
+    format!("turef_{}", token_id)
 }

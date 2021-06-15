@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 contract = { package="casper-contract", version = "1.2.0" }
 types = { package="casper-types", version = "1.2.0" }
-cep47 = { path="../cep47" }
+cep47 = { path="../cep47", features = ["no_owner_of"]}
 
 [[bin]]
 name = "dragons-nft"

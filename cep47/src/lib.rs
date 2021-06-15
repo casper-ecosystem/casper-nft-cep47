@@ -181,24 +181,28 @@ impl WithStorage<CasperCEP47Storage> for CasperCEP47Contract {
 }
 impl CEP47Contract<CasperCEP47Storage> for CasperCEP47Contract {}
 
+#[cfg(not(feature = "no_name"))]
 #[no_mangle]
 pub extern "C" fn name() {
     let contract = CasperCEP47Contract::new();
     ret(contract.name())
 }
 
+#[cfg(not(feature = "no_symbol"))]
 #[no_mangle]
 pub extern "C" fn symbol() {
     let contract = CasperCEP47Contract::new();
     ret(contract.symbol())
 }
 
+#[cfg(not(feature = "no_uri"))]
 #[no_mangle]
 pub extern "C" fn uri() {
     let contract = CasperCEP47Contract::new();
     ret(contract.uri())
 }
 
+#[cfg(not(feature = "no_balance_of"))]
 #[no_mangle]
 pub extern "C" fn balance_of() {
     let account: PublicKey = runtime::get_named_arg("account");
@@ -206,6 +210,7 @@ pub extern "C" fn balance_of() {
     ret(contract.balance_of(account))
 }
 
+#[cfg(not(feature = "no_owner_of"))]
 #[no_mangle]
 pub extern "C" fn owner_of() {
     let token_id: TokenId = runtime::get_named_arg("token_id");
@@ -213,12 +218,14 @@ pub extern "C" fn owner_of() {
     ret(contract.owner_of(token_id))
 }
 
+#[cfg(not(feature = "no_total_supply"))]
 #[no_mangle]
 pub extern "C" fn total_supply() {
     let contract = CasperCEP47Contract::new();
     ret(contract.total_supply())
 }
 
+#[cfg(not(feature = "no_token_uri"))]
 #[no_mangle]
 pub extern "C" fn token_uri() {
     let token_id: TokenId = runtime::get_named_arg("token_id");
@@ -226,6 +233,7 @@ pub extern "C" fn token_uri() {
     ret(contract.token_uri(token_id))
 }
 
+#[cfg(not(feature = "no_tokens"))]
 #[no_mangle]
 pub extern "C" fn tokens() {
     let owner: PublicKey = runtime::get_named_arg("owner");
@@ -233,6 +241,7 @@ pub extern "C" fn tokens() {
     ret(contract.tokens(owner))
 }
 
+#[cfg(not(feature = "no_mint_one"))]
 #[no_mangle]
 pub extern "C" fn mint_one() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
@@ -241,6 +250,7 @@ pub extern "C" fn mint_one() {
     contract.mint_one(recipient, token_uri);
 }
 
+#[cfg(not(feature = "no_mint_many"))]
 #[no_mangle]
 pub extern "C" fn mint_many() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
@@ -249,6 +259,7 @@ pub extern "C" fn mint_many() {
     contract.mint_many(recipient, token_uris);
 }
 
+#[cfg(not(feature = "no_mint_copies"))]
 #[no_mangle]
 pub extern "C" fn mint_copies() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
@@ -258,6 +269,7 @@ pub extern "C" fn mint_copies() {
     contract.mint_copies(recipient, token_uri, count);
 }
 
+#[cfg(not(feature = "no_transfer_token"))]
 #[no_mangle]
 pub extern "C" fn transfer_token() {
     let sender: PublicKey = runtime::get_named_arg("sender");
@@ -268,6 +280,7 @@ pub extern "C" fn transfer_token() {
     res.unwrap_or_revert();
 }
 
+#[cfg(not(feature = "no_transfer_many_tokens"))]
 #[no_mangle]
 pub extern "C" fn transfer_many_tokens() {
     let sender: PublicKey = runtime::get_named_arg("sender");
@@ -278,6 +291,7 @@ pub extern "C" fn transfer_many_tokens() {
     res.unwrap_or_revert();
 }
 
+#[cfg(not(feature = "no_transfer_all_tokens"))]
 #[no_mangle]
 pub extern "C" fn transfer_all_tokens() {
     let sender: PublicKey = runtime::get_named_arg("sender");
@@ -286,6 +300,7 @@ pub extern "C" fn transfer_all_tokens() {
     contract.transfer_all_tokens(sender, recipient);
 }
 
+#[cfg(not(feature = "no_attach"))]
 #[no_mangle]
 pub extern "C" fn attach() {
     let token_uref: URef = runtime::get_named_arg("token_uref");
@@ -294,6 +309,7 @@ pub extern "C" fn attach() {
     contract.attach(token_uref, recipient);
 }
 
+#[cfg(not(feature = "no_detach"))]
 #[no_mangle]
 pub extern "C" fn detach() {
     let owner: PublicKey = runtime::get_named_arg("owner");

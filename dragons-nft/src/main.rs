@@ -1,5 +1,9 @@
 #![no_main]
-extern crate cep47;
+
+#[no_mangle]
+pub extern "C" fn owner_of() {
+
+}
 
 #[no_mangle]
 pub extern "C" fn call() {

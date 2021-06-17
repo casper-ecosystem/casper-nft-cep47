@@ -1,9 +1,20 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
-use types::{AsymmetricType, PublicKey, URef, U256};
+use casper_types::{ApiError, AsymmetricType, PublicKey, URef, U256};
 
 pub type TokenId = String;
 pub type URI = String;
+
+#[repr(u16)]
+pub enum Error {
+    PermissionDenied = 2, // 65538
+}
+
+impl From<Error> for ApiError {
+    fn from(error: Error) -> ApiError {
+        ApiError::User(error as u16)
+    }
+}
 
 pub trait WithStorage<Storage: CEP47Storage> {
     fn storage(&self) -> &Storage;
@@ -61,23 +72,27 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
     }
 
     // Transfer functions.
-    fn transfer_token(&mut self, sender: PublicKey, recipient: PublicKey, token_id: TokenId) {
+    fn transfer_token(
+        &mut self,
+        sender: PublicKey,
+        recipient: PublicKey,
+        token_id: TokenId,
+    ) -> Result<(), Error> {
         // 1. Load tokens owned by the sender.
-        let mut sender_tokens = self.storage().get_tokens(sender);
+        let mut sender_tokens = self.storage().get_tokens(sender.clone());
         // 2. Assert that token_id is in sender_tokens.
-        assert!(
-            sender_tokens.contains(&token_id),
-            "wrong owner of token {}",
-            token_id
-        );
+        if !sender_tokens.contains(&token_id) {
+            return Err(Error::PermissionDenied);
+        }
         // 3. Remove token_id from sender_tokens.
         sender_tokens.retain(|x| x.clone() != token_id);
         self.storage_mut().set_tokens(sender, sender_tokens);
 
         // 4. Add token_id to the recipient tokens
-        let mut recipient_tokens = self.storage().get_tokens(recipient);
+        let mut recipient_tokens = self.storage().get_tokens(recipient.clone());
         recipient_tokens.push(token_id);
         self.storage_mut().set_tokens(recipient, recipient_tokens);
+        Ok(())
     }
 
     fn transfer_many_tokens(
@@ -85,21 +100,24 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         sender: PublicKey,
         recipient: PublicKey,
         token_ids: Vec<TokenId>,
-    ) {
-        let mut sender_tokens = self.storage().get_tokens(sender);
+    ) -> Result<(), Error> {
+        let mut sender_tokens = self.storage().get_tokens(sender.clone());
         for token_id in token_ids.iter() {
-            assert!(sender_tokens.contains(token_id), "wrong token {}", token_id);
+            if !sender_tokens.contains(token_id) {
+                return Err(Error::PermissionDenied);
+            }
             sender_tokens.retain(|x| x.clone() != token_id.clone());
         }
-        let mut recipient_tokens = self.storage().get_tokens(recipient);
+        let mut recipient_tokens = self.storage().get_tokens(recipient.clone());
         recipient_tokens.append(&mut token_ids.clone());
         self.storage_mut().set_tokens(sender, sender_tokens);
         self.storage_mut().set_tokens(recipient, recipient_tokens);
+        Ok(())
     }
 
     fn transfer_all_tokens(&mut self, sender: PublicKey, recipient: PublicKey) {
-        let mut sender_tokens = self.storage().get_tokens(sender);
-        let mut recipient_tokens = self.storage().get_tokens(recipient);
+        let mut sender_tokens = self.storage().get_tokens(sender.clone());
+        let mut recipient_tokens = self.storage().get_tokens(recipient.clone());
         recipient_tokens.append(&mut sender_tokens);
 
         self.storage_mut().set_tokens(sender, sender_tokens);
@@ -108,7 +126,7 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
 
     // URef releated function.
     fn detach(&mut self, owner: PublicKey, token_id: TokenId) -> Option<URef> {
-        let mut tokens = self.storage().get_tokens(owner);
+        let mut tokens = self.storage().get_tokens(owner.clone());
         if !tokens.contains(&token_id) {
             None
         } else {
@@ -120,7 +138,7 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
 
     fn attach(&mut self, token_uref: URef, recipient: PublicKey) {
         let token_id = self.storage_mut().del_uref(token_uref).unwrap();
-        let mut tokens = self.storage().get_tokens(recipient);
+        let mut tokens = self.storage().get_tokens(recipient.clone());
         tokens.push(token_id);
         self.storage_mut().set_tokens(recipient, tokens);
     }

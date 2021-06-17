@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use casper_types::AccessRights;
     use rand::Rng;
-    use types::AccessRights;
 
     use crate::{
         AsymmetricType, CEP47Contract, CEP47Storage, PublicKey, TokenId, URef, WithStorage, U256,
@@ -97,15 +97,15 @@ mod tests {
         fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
             let owner_new_balance = U256::from(token_ids.len() as u64);
 
-            let owner_tokens = self.get_tokens(owner);
+            let owner_tokens = self.get_tokens(owner.clone());
             for token_id in owner_tokens.clone() {
                 self.belongs_to.remove(&token_id);
             }
             for token_id in token_ids.clone() {
-                self.belongs_to.insert(token_id, owner);
+                self.belongs_to.insert(token_id, owner.clone());
             }
 
-            self.tokens.insert(owner, token_ids.clone());
+            self.tokens.insert(owner.clone(), token_ids.clone());
             self.balances.insert(owner, owner_new_balance);
         }
 
@@ -131,11 +131,12 @@ mod tests {
                 let token_id: TokenId = TokenId::from(hasher.finish().to_string());
                 self.token_uris.insert(token_id.clone(), token_uri);
                 recipient_new_tokens.push(token_id.clone());
-                self.belongs_to.insert(token_id, recipient);
+                self.belongs_to.insert(token_id, recipient.clone());
                 recipient_new_balance = recipient_new_balance + 1;
                 self.total_supply = self.total_supply + 1;
             }
-            self.balances.insert(recipient, recipient_new_balance);
+            self.balances
+                .insert(recipient.clone(), recipient_new_balance);
             self.tokens.insert(recipient, recipient_new_tokens);
         }
 
@@ -216,13 +217,16 @@ mod tests {
         let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
         assert_eq!(contract.total_supply(), U256::from(0));
-        contract.mint_many(ali, vec![URI::from("Apple URI")]);
-        contract.mint_many(bob, vec![URI::from("Banana URI"), URI::from("Orange URI")]);
+        contract.mint_many(ali.clone(), vec![URI::from("Apple URI")]);
+        contract.mint_many(
+            bob.clone(),
+            vec![URI::from("Banana URI"), URI::from("Orange URI")],
+        );
         assert_eq!(contract.total_supply(), U256::from(3));
 
-        let ali_balance = contract.balance_of(ali);
+        let ali_balance = contract.balance_of(ali.clone());
         assert_eq!(ali_balance, U256::from(1));
-        let bob_balance = contract.balance_of(bob);
+        let bob_balance = contract.balance_of(bob.clone());
         assert_eq!(bob_balance, U256::from(2));
 
         let ali_tokens: Vec<TokenId> = contract.tokens(ali);
@@ -243,10 +247,10 @@ mod tests {
         let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
 
         assert_eq!(contract.total_supply(), U256::from(0));
-        contract.mint_copies(ali, URI::from("Casper Fan URI"), U256::from(7));
+        contract.mint_copies(ali.clone(), URI::from("Casper Fan URI"), U256::from(7));
         assert_eq!(contract.total_supply(), U256::from(7));
 
-        let ali_balance = contract.balance_of(ali);
+        let ali_balance = contract.balance_of(ali.clone());
         assert_eq!(ali_balance, U256::from(7));
 
         let ali_tokens: Vec<TokenId> = contract.tokens(ali);
@@ -266,22 +270,24 @@ mod tests {
         let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
         assert_eq!(contract.total_supply(), U256::from(0));
-        contract.mint_one(ali, URI::from("Casper Fan URI"));
+        contract.mint_one(ali.clone(), URI::from("Casper Fan URI"));
         assert_eq!(contract.total_supply(), U256::from(1));
 
-        let mut ali_balance = contract.balance_of(ali);
-        let mut bob_balance = contract.balance_of(bob);
+        let mut ali_balance = contract.balance_of(ali.clone());
+        let mut bob_balance = contract.balance_of(bob.clone());
         assert_eq!(ali_balance, U256::from(1));
         assert_eq!(bob_balance, U256::from(0));
 
-        let ali_tokens: Vec<TokenId> = contract.tokens(ali);
+        let ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
         let ali_first_token_id: TokenId = ali_tokens.get(0).unwrap().clone();
         let ali_first_token_uri: URI = contract.token_uri(ali_first_token_id.clone()).unwrap();
         assert_eq!(ali_first_token_uri, URI::from("Casper Fan URI"));
 
-        contract.transfer_token(ali, bob, ali_first_token_id.clone());
+        let transfer_res =
+            contract.transfer_token(ali.clone(), bob.clone(), ali_first_token_id.clone());
+        assert!(transfer_res.is_ok());
         ali_balance = contract.balance_of(ali);
-        bob_balance = contract.balance_of(bob);
+        bob_balance = contract.balance_of(bob.clone());
         assert_eq!(ali_balance, U256::from(0));
         assert_eq!(bob_balance, U256::from(1));
 
@@ -295,24 +301,27 @@ mod tests {
         let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
         assert_eq!(contract.total_supply(), U256::from(0));
-        contract.mint_many(ali, vec![URI::from("Apple URI"), URI::from("Banana URI")]);
-        contract.mint_one(ali, URI::from("Casper Fan URI"));
+        contract.mint_many(
+            ali.clone(),
+            vec![URI::from("Apple URI"), URI::from("Banana URI")],
+        );
+        contract.mint_one(ali.clone(), URI::from("Casper Fan URI"));
         assert_eq!(contract.total_supply(), U256::from(3));
 
-        let mut ali_balance = contract.balance_of(ali);
-        let mut bob_balance = contract.balance_of(bob);
+        let mut ali_balance = contract.balance_of(ali.clone());
+        let mut bob_balance = contract.balance_of(bob.clone());
         assert_eq!(ali_balance, U256::from(3));
         assert_eq!(bob_balance, U256::from(0));
 
-        let ali_tokens: Vec<TokenId> = contract.tokens(ali);
+        let ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
         let ali_second_token_id: TokenId = ali_tokens.get(1).unwrap().clone();
         let ali_second_token_uri: URI = contract.token_uri(ali_second_token_id.clone()).unwrap();
         assert_eq!(ali_second_token_uri, URI::from("Banana URI"));
 
-        contract.transfer_all_tokens(ali, bob);
+        contract.transfer_all_tokens(ali.clone(), bob.clone());
 
         ali_balance = contract.balance_of(ali);
-        bob_balance = contract.balance_of(bob);
+        bob_balance = contract.balance_of(bob.clone());
         assert_eq!(ali_balance, U256::from(0));
         assert_eq!(bob_balance, U256::from(3));
 
@@ -327,16 +336,19 @@ mod tests {
         let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
         assert_eq!(contract.total_supply(), U256::from(0));
-        contract.mint_many(ali, vec![URI::from("Apple URI"), URI::from("Banana URI")]);
-        contract.mint_copies(ali, URI::from("Casper Fan URI"), U256::from(3));
+        contract.mint_many(
+            ali.clone(),
+            vec![URI::from("Apple URI"), URI::from("Banana URI")],
+        );
+        contract.mint_copies(ali.clone(), URI::from("Casper Fan URI"), U256::from(3));
         assert_eq!(contract.total_supply(), U256::from(5));
 
-        let mut ali_balance = contract.balance_of(ali);
-        let mut bob_balance = contract.balance_of(bob);
+        let mut ali_balance = contract.balance_of(ali.clone());
+        let mut bob_balance = contract.balance_of(bob.clone());
         assert_eq!(ali_balance, U256::from(5));
         assert_eq!(bob_balance, U256::from(0));
 
-        let ali_tokens: Vec<TokenId> = contract.tokens(ali);
+        let ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
         let ali_second_token_id: TokenId = ali_tokens.get(1).unwrap().clone();
         let ali_second_token_uri: URI = contract.token_uri(ali_second_token_id.clone()).unwrap();
         let ali_third_token_id: TokenId = ali_tokens.get(2).unwrap().clone();
@@ -344,14 +356,15 @@ mod tests {
         assert_eq!(ali_second_token_uri, URI::from("Banana URI"));
         assert_eq!(ali_third_token_uri, URI::from("Casper Fan URI"));
 
-        contract.transfer_many_tokens(
-            ali,
-            bob,
+        let transfer_res = contract.transfer_many_tokens(
+            ali.clone(),
+            bob.clone(),
             vec![ali_second_token_id.clone(), ali_third_token_id.clone()],
         );
+        assert!(transfer_res.is_ok());
 
         ali_balance = contract.balance_of(ali);
-        bob_balance = contract.balance_of(bob);
+        bob_balance = contract.balance_of(bob.clone());
         assert_eq!(ali_balance, U256::from(3));
         assert_eq!(bob_balance, U256::from(2));
 
@@ -367,11 +380,11 @@ mod tests {
         let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
         let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
-        contract.mint_one(ali, URI::from("0x12af"));
-        let token_id: TokenId = contract.tokens(ali)[0].clone();
+        contract.mint_one(ali.clone(), URI::from("0x12af"));
+        let token_id: TokenId = contract.tokens(ali.clone())[0].clone();
 
-        let token_uref: URef = contract.detach(ali, token_id.clone()).unwrap();
-        assert_eq!(contract.balance_of(ali), U256::zero());
+        let token_uref: URef = contract.detach(ali.clone(), token_id.clone()).unwrap();
+        assert_eq!(contract.balance_of(ali.clone()), U256::zero());
         assert_eq!(contract.total_supply(), U256::one());
         assert!(contract.tokens(ali).is_empty());
 
@@ -381,8 +394,8 @@ mod tests {
             URI::from("0x12af")
         );
 
-        contract.attach(token_uref, bob);
-        assert_eq!(contract.balance_of(bob), U256::one());
+        contract.attach(token_uref, bob.clone());
+        assert_eq!(contract.balance_of(bob.clone()), U256::one());
         assert_eq!(contract.total_supply(), U256::one());
         assert_eq!(contract.tokens(bob), vec![token_id]);
     }

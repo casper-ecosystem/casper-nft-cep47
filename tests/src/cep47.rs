@@ -1,7 +1,7 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
     account::AccountHash, bytesrepr::FromBytes, runtime_args, AsymmetricType, CLTyped, PublicKey,
-    RuntimeArgs, URef, U256, U512,
+    RuntimeArgs, SecretKey, URef, U256, U512,
 };
 
 pub mod token_cfg {
@@ -16,7 +16,9 @@ pub const CASPERCEP47_CONTRACT_HASH: &str = "caspercep47_contract_hash";
 pub struct CasperCEP47Contract {
     pub context: TestContext,
     pub caspercep47_hash: Hash,
-    pub account: AccountHash,
+    pub admin: PublicKey,
+    pub ali: PublicKey,
+    pub bob: PublicKey,
 }
 
 pub type TokenId = String;
@@ -24,24 +26,28 @@ pub type URI = String;
 
 impl CasperCEP47Contract {
     pub fn deploy() -> Self {
-        let account = PublicKey::ed25519_from_bytes([1u8; 32]).unwrap();
+        let admin: PublicKey = SecretKey::ed25519_from_bytes([1u8; 32]).unwrap().into();
+        let ali: PublicKey = SecretKey::ed25519_from_bytes([3u8; 32]).unwrap().into();
+        let bob: PublicKey = SecretKey::ed25519_from_bytes([5u8; 32]).unwrap().into();
         let mut context = TestContextBuilder::new()
-            .with_public_key(account, U512::from(500_000_000_000_000_000u64))
+            .with_public_key(admin.clone(), U512::from(500_000_000_000_000_000u64))
+            .with_public_key(ali.clone(), U512::from(500_000_000_000_000_000u64))
+            .with_public_key(bob.clone(), U512::from(500_000_000_000_000_000u64))
             .build();
-        let session_code = Code::from("cep47.wasm");
+        let session_code = Code::from("dragons-nft.wasm");
         let session_args = runtime_args! {
             "token_name" => token_cfg::NAME,
             "token_symbol" => token_cfg::SYMBOL,
             "token_uri" => token_cfg::URI
         };
         let session = SessionBuilder::new(session_code, session_args)
-            .with_address(account.to_account_hash())
-            .with_authorization_keys(&[account.to_account_hash()])
+            .with_address(admin.to_account_hash())
+            .with_authorization_keys(&[admin.to_account_hash()])
             .build();
         context.run(session);
         let caspercep47_hash = context
             .query(
-                account.to_account_hash(),
+                admin.to_account_hash(),
                 &[CASPERCEP47_CONTRACT_HASH.to_string()],
             )
             .unwrap()
@@ -51,22 +57,24 @@ impl CasperCEP47Contract {
         Self {
             context,
             caspercep47_hash,
-            account: account.to_account_hash(),
+            admin: admin,
+            ali: ali,
+            bob: bob,
         }
     }
 
     fn call(&mut self, method: &str, args: RuntimeArgs) {
         let code = Code::Hash(self.caspercep47_hash, method.to_string());
         let session = SessionBuilder::new(code, args)
-            .with_address(self.account)
-            .with_authorization_keys(&[self.account])
+            .with_address(self.admin.to_account_hash())
+            .with_authorization_keys(&[self.admin.to_account_hash()])
             .build();
         self.context.run(session);
     }
 
     fn query_contract<T: CLTyped + FromBytes>(&self, name: &str) -> Option<T> {
         match self.context.query(
-            self.account,
+            self.admin.to_account_hash(),
             &[CASPERCEP47_CONTRACT.to_string(), name.to_string()],
         ) {
             Err(_) => None,
@@ -111,6 +119,10 @@ impl CasperCEP47Contract {
 
     pub fn token_uri(&self, token_id: TokenId) -> Option<URI> {
         self.query_contract(uri_key(&token_id).as_str())
+    }
+
+    pub fn token_uref(&self, token_id: &TokenId) -> Option<URef> {
+        self.query_contract(test_uref_key(&token_id).as_str())
     }
 
     pub fn mint_one(&mut self, recipient: PublicKey, token_uri: URI) {
@@ -180,26 +192,6 @@ impl CasperCEP47Contract {
             },
         );
     }
-
-    pub fn attach(&mut self, token_uref: URef, recipient: PublicKey) {
-        self.call(
-            "attach",
-            runtime_args! {
-                "token_uref" => token_uref,
-                "recipient" => recipient
-            },
-        );
-    }
-
-    pub fn detach(&mut self, owner: PublicKey, token_id: String) {
-        self.call(
-            "detach",
-            runtime_args! {
-                "owner" => owner,
-                "token_id" => token_id
-            },
-        );
-    }
 }
 
 fn balance_key(account: &AccountHash) -> String {
@@ -216,4 +208,8 @@ fn uri_key(token_id: &TokenId) -> String {
 
 fn token_key(account: &AccountHash) -> String {
     format!("tokens_{}", account)
+}
+
+fn test_uref_key(token_id: &TokenId) -> String {
+    format!("turef_{}", token_id)
 }

@@ -1,8 +1,9 @@
 [workspace]
 
 members = [
-    "cep47",
-	"tests"
+	"tests",
+    "dragons-nft",
+    "marketplace"
 ]
 
 [profile.release]

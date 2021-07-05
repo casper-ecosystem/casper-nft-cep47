@@ -1,7 +1,7 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
-    account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, PublicKey,
-    RuntimeArgs, SecretKey, URef, U256, U512,
+    account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, PublicKey, RuntimeArgs,
+    SecretKey, URef, U256, U512,
 };
 
 pub mod token_cfg {
@@ -10,12 +10,13 @@ pub mod token_cfg {
     pub const URI: &str = "https://casper.network/network";
 }
 
-pub const CASPERCEP47_CONTRACT: &str = "caspercep47_contract";
-pub const CASPERCEP47_CONTRACT_HASH: &str = "caspercep47_contract_hash";
+pub const CONTRACT_KEY: &str = "CasperNFT_contract";
+pub const CONTRACT_HASH_KEY: &str = "CasperNFT_contract_hash";
 
+pub struct Sender(pub AccountHash);
 pub struct CasperCEP47Contract {
     pub context: TestContext,
-    pub caspercep47_hash: Hash,
+    pub hash: Hash,
     pub admin: PublicKey,
     pub ali: PublicKey,
     pub bob: PublicKey,
@@ -45,29 +46,27 @@ impl CasperCEP47Contract {
             .with_authorization_keys(&[admin.to_account_hash()])
             .build();
         context.run(session);
-        let caspercep47_hash = context
-            .query(
-                admin.to_account_hash(),
-                &[CASPERCEP47_CONTRACT_HASH.to_string()],
-            )
+        let hash = context
+            .query(admin.to_account_hash(), &[CONTRACT_HASH_KEY.to_string()])
             .unwrap()
             .into_t()
             .unwrap();
 
         Self {
             context,
-            caspercep47_hash,
+            hash,
             admin: admin,
             ali: ali,
             bob: bob,
         }
     }
 
-    fn call(&mut self, method: &str, args: RuntimeArgs) {
-        let code = Code::Hash(self.caspercep47_hash, method.to_string());
+    fn call(&mut self, sender: Sender, method: &str, args: RuntimeArgs) {
+        let Sender(address) = sender;
+        let code = Code::Hash(self.hash, method.to_string());
         let session = SessionBuilder::new(code, args)
-            .with_address(self.admin.to_account_hash())
-            .with_authorization_keys(&[self.admin.to_account_hash()])
+            .with_address(address)
+            .with_authorization_keys(&[address])
             .build();
         self.context.run(session);
     }
@@ -75,7 +74,7 @@ impl CasperCEP47Contract {
     fn query_contract<T: CLTyped + FromBytes>(&self, name: &str) -> Option<T> {
         match self.context.query(
             self.admin.to_account_hash(),
-            &[CASPERCEP47_CONTRACT.to_string(), name.to_string()],
+            &[CONTRACT_KEY.to_string(), name.to_string()],
         ) {
             Err(_) => None,
             Ok(maybe_value) => {
@@ -125,8 +124,9 @@ impl CasperCEP47Contract {
         self.query_contract(test_uref_key(&token_id).as_str())
     }
 
-    pub fn mint_one(&mut self, recipient: PublicKey, token_uri: URI) {
+    pub fn mint_one(&mut self, recipient: PublicKey, token_uri: URI, sender: Sender) {
         self.call(
+            sender,
             "mint_one",
             runtime_args! {
                 "recipient" => recipient,
@@ -135,8 +135,15 @@ impl CasperCEP47Contract {
         );
     }
 
-    pub fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256) {
+    pub fn mint_copies(
+        &mut self,
+        recipient: PublicKey,
+        token_uri: URI,
+        count: U256,
+        sender: Sender,
+    ) {
         self.call(
+            sender,
             "mint_copies",
             runtime_args! {
                 "recipient" => recipient,
@@ -146,8 +153,9 @@ impl CasperCEP47Contract {
         );
     }
 
-    pub fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>) {
+    pub fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>, sender: Sender) {
         self.call(
+            sender,
             "mint_many",
             runtime_args! {
                 "recipient" => recipient,
@@ -156,8 +164,9 @@ impl CasperCEP47Contract {
         );
     }
 
-    pub fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
+    pub fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>, sender: Sender) {
         self.call(
+            sender,
             "burn_many",
             runtime_args! {
                 "owner" => owner,
@@ -166,8 +175,9 @@ impl CasperCEP47Contract {
         );
     }
 
-    pub fn burn_one(&mut self, owner: PublicKey, token_id: TokenId) {
+    pub fn burn_one(&mut self, owner: PublicKey, token_id: TokenId, sender: Sender) {
         self.call(
+            sender,
             "burn_one",
             runtime_args! {
                 "owner" => owner,
@@ -176,11 +186,18 @@ impl CasperCEP47Contract {
         );
     }
 
-    pub fn transfer_token(&mut self, sender: PublicKey, recipient: PublicKey, token_id: TokenId) {
+    pub fn transfer_token(
+        &mut self,
+        owner: PublicKey,
+        recipient: PublicKey,
+        token_id: TokenId,
+        sender: Sender,
+    ) {
         self.call(
+            sender,
             "transfer_token",
             runtime_args! {
-                "sender" => sender,
+                "sender" => owner,
                 "recipient" => recipient,
                 "token_id" => token_id
             },
@@ -189,25 +206,28 @@ impl CasperCEP47Contract {
 
     pub fn transfer_many_tokens(
         &mut self,
-        sender: PublicKey,
+        owner: PublicKey,
         recipient: PublicKey,
         token_ids: Vec<TokenId>,
+        sender: Sender,
     ) {
         self.call(
+            sender,
             "transfer_many_tokens",
             runtime_args! {
-                "sender" => sender,
+                "sender" => owner,
                 "recipient" => recipient,
                 "token_ids" => token_ids
             },
         );
     }
 
-    pub fn transfer_all_tokens(&mut self, sender: PublicKey, recipient: PublicKey) {
+    pub fn transfer_all_tokens(&mut self, owner: PublicKey, recipient: PublicKey, sender: Sender) {
         self.call(
+            sender,
             "transfer_all_tokens",
             runtime_args! {
-                "sender" => sender,
+                "sender" => owner,
                 "recipient" => recipient
             },
         );

@@ -27,4 +27,4 @@ jobs:
     - run: make prepare
     - run: make check-lint
     # Tests will be added after NCTL interaction is possible.
-    # - run: make test
+    - run: make test

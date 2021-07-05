@@ -355,7 +355,11 @@ pub extern "C" fn burn_one() {
 #[cfg(not(feature = "no_transfer_token"))]
 #[no_mangle]
 pub extern "C" fn transfer_token() {
+    let caller: AccountHash = runtime::get_caller();
     let sender: PublicKey = runtime::get_named_arg("sender");
+    if sender.to_account_hash() != caller {
+        runtime::revert(ApiError::PermissionDenied);
+    }
     let recipient: PublicKey = runtime::get_named_arg("recipient");
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let mut contract = CasperCEP47Contract::new();
@@ -366,7 +370,11 @@ pub extern "C" fn transfer_token() {
 #[cfg(not(feature = "no_transfer_many_tokens"))]
 #[no_mangle]
 pub extern "C" fn transfer_many_tokens() {
+    let caller: AccountHash = runtime::get_caller();
     let sender: PublicKey = runtime::get_named_arg("sender");
+    if sender.to_account_hash() != caller {
+        runtime::revert(ApiError::PermissionDenied);
+    }
     let recipient: PublicKey = runtime::get_named_arg("recipient");
     let token_ids: Vec<TokenId> = runtime::get_named_arg("token_ids");
     let mut contract = CasperCEP47Contract::new();
@@ -377,7 +385,11 @@ pub extern "C" fn transfer_many_tokens() {
 #[cfg(not(feature = "no_transfer_all_tokens"))]
 #[no_mangle]
 pub extern "C" fn transfer_all_tokens() {
+    let caller: AccountHash = runtime::get_caller();
     let sender: PublicKey = runtime::get_named_arg("sender");
+    if sender.to_account_hash() != caller {
+        runtime::revert(ApiError::PermissionDenied);
+    }
     let recipient: PublicKey = runtime::get_named_arg("recipient");
     let mut contract = CasperCEP47Contract::new();
     let res = contract.transfer_all_tokens(sender, recipient);
@@ -596,6 +608,7 @@ pub fn deploy(
     token_uri: &str,
     entry_points: EntryPoints,
     contract_package_hash: ContractPackageHash,
+    paused: bool,
 ) {
     let mut named_keys = NamedKeys::new();
     named_keys.insert("name".to_string(), storage::new_uref(token_name).into());
@@ -605,13 +618,19 @@ pub fn deploy(
         "total_supply".to_string(),
         storage::new_uref(U256::zero()).into(),
     );
-    named_keys.insert("paused".to_string(), storage::new_uref(false).into());
+    named_keys.insert("paused".to_string(), storage::new_uref(paused).into());
 
     let (contract_hash, _) =
         storage::add_contract_version(contract_package_hash, entry_points, named_keys);
-    runtime::put_key("caspercep47_contract", contract_hash.into());
+    runtime::put_key(
+        format!("{}_contract", token_name).as_str(),
+        contract_hash.into(),
+    );
     let contract_hash_pack = storage::new_uref(contract_hash);
-    runtime::put_key("caspercep47_contract_hash", contract_hash_pack.into());
+    runtime::put_key(
+        format!("{}_contract_hash", token_name).as_str(),
+        contract_hash_pack.into(),
+    );
 }
 
 fn get_key<T: FromBytes + CLTyped>(name: &str) -> Option<T> {

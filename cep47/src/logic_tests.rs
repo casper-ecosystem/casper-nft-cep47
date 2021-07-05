@@ -17,6 +17,7 @@ mod tests {
         name: String,
         symbol: String,
         uri: URI,
+        paused: bool,
         total_supply: U256,
         tokens: BTreeMap<PublicKey, Vec<TokenId>>,
         token_uris: BTreeMap<TokenId, URI>,
@@ -31,6 +32,7 @@ mod tests {
                 name: String::from("Casper Enhancement Proposal 47"),
                 symbol: String::from("CEP47"),
                 uri: URI::from("https://github.com/casper-ecosystem/casper-nft-cep47"),
+                paused: false,
                 total_supply: U256::from(0),
                 tokens: BTreeMap::new(),
                 balances: BTreeMap::new(),
@@ -83,6 +85,18 @@ mod tests {
             } else {
                 None
             }
+        }
+
+        fn is_paused(&self) -> bool {
+            self.paused
+        }
+
+        fn pause(&mut self) {
+            self.paused = true;
+        }
+
+        fn unpause(&mut self) {
+            self.paused = false;
         }
 
         fn get_tokens(&self, owner: PublicKey) -> Vec<TokenId> {
@@ -444,7 +458,8 @@ mod tests {
         let ali_second_token_uri: URI = contract.token_uri(ali_second_token_id.clone()).unwrap();
         assert_eq!(ali_second_token_uri, URI::from("Banana URI"));
 
-        contract.transfer_all_tokens(ali.clone(), bob.clone());
+        let transfer_res = contract.transfer_all_tokens(ali.clone(), bob.clone());
+        assert!(transfer_res.is_ok());
 
         ali_balance = contract.balance_of(ali);
         bob_balance = contract.balance_of(bob.clone());

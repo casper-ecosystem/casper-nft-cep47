@@ -56,6 +56,18 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         self.storage().get_tokens(owner)
     }
 
+    fn is_paused(&self) -> bool {
+        self.storage().is_paused()
+    }
+
+    fn pause(&mut self) {
+        self.storage_mut().pause();
+    }
+
+    fn unpause(&mut self) {
+        self.storage_mut().unpause();
+    }
+
     // Minter function.
     // Guarded by the entrypoint group.
     fn mint_one(&mut self, recipient: PublicKey, token_uri: URI) {
@@ -86,6 +98,10 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         recipient: PublicKey,
         token_id: TokenId,
     ) -> Result<(), Error> {
+        let paused = self.storage().is_paused();
+        if paused {
+            return Err(Error::PermissionDenied);
+        }
         // 1. Load tokens owned by the sender.
         let mut sender_tokens = self.storage().get_tokens(sender.clone());
         // 2. Assert that token_id is in sender_tokens.
@@ -109,6 +125,10 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         recipient: PublicKey,
         token_ids: Vec<TokenId>,
     ) -> Result<(), Error> {
+        let paused = self.storage().is_paused();
+        if paused {
+            return Err(Error::PermissionDenied);
+        }
         let mut sender_tokens = self.storage().get_tokens(sender.clone());
         for token_id in token_ids.iter() {
             if !sender_tokens.contains(token_id) {
@@ -123,13 +143,22 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         Ok(())
     }
 
-    fn transfer_all_tokens(&mut self, sender: PublicKey, recipient: PublicKey) {
+    fn transfer_all_tokens(
+        &mut self,
+        sender: PublicKey,
+        recipient: PublicKey,
+    ) -> Result<(), Error> {
+        let paused = self.storage().is_paused();
+        if paused {
+            return Err(Error::PermissionDenied);
+        }
         let mut sender_tokens = self.storage().get_tokens(sender.clone());
         let mut recipient_tokens = self.storage().get_tokens(recipient.clone());
         recipient_tokens.append(&mut sender_tokens);
 
         self.storage_mut().set_tokens(sender, sender_tokens);
         self.storage_mut().set_tokens(recipient, recipient_tokens);
+        Ok(())
     }
 
     // URef releated function.
@@ -167,6 +196,11 @@ pub trait CEP47Storage {
     fn onwer_of(&self, token_id: TokenId) -> Option<PublicKey>;
     fn total_supply(&self) -> U256;
     fn token_uri(&self, token_id: TokenId) -> Option<URI>;
+
+    // Controls
+    fn is_paused(&self) -> bool;
+    fn pause(&mut self);
+    fn unpause(&mut self);
 
     // Setters
     fn get_tokens(&self, owner: PublicKey) -> Vec<TokenId>;

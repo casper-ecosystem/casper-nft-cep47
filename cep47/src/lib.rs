@@ -66,6 +66,15 @@ impl CEP47Storage for CasperCEP47Storage {
     fn token_uri(&self, token_id: TokenId) -> Option<URI> {
         get_key::<URI>(&uri_key(&token_id))
     }
+    fn is_paused(&self) -> bool {
+        get_key::<bool>("paused").unwrap()
+    }
+    fn pause(&mut self) {
+        set_key("paused", true);
+    }
+    fn unpause(&mut self) {
+        set_key("paused", false);
+    }
 
     // Setters
     fn get_tokens(&self, owner: PublicKey) -> Vec<TokenId> {
@@ -276,6 +285,27 @@ pub extern "C" fn tokens() {
     ret(contract.tokens(owner))
 }
 
+#[cfg(not(feature = "no_is_paused"))]
+#[no_mangle]
+pub extern "C" fn is_paused() {
+    let contract = CasperCEP47Contract::new();
+    ret(contract.is_paused())
+}
+
+#[cfg(not(feature = "no_pause"))]
+#[no_mangle]
+pub extern "C" fn pause() {
+    let mut contract = CasperCEP47Contract::new();
+    contract.pause();
+}
+
+#[cfg(not(feature = "no_unpause"))]
+#[no_mangle]
+pub extern "C" fn unpause() {
+    let mut contract = CasperCEP47Contract::new();
+    contract.unpause();
+}
+
 #[cfg(not(feature = "no_mint_one"))]
 #[no_mangle]
 pub extern "C" fn mint_one() {
@@ -350,7 +380,8 @@ pub extern "C" fn transfer_all_tokens() {
     let sender: PublicKey = runtime::get_named_arg("sender");
     let recipient: PublicKey = runtime::get_named_arg("recipient");
     let mut contract = CasperCEP47Contract::new();
-    contract.transfer_all_tokens(sender, recipient);
+    let res = contract.transfer_all_tokens(sender, recipient);
+    res.unwrap_or_revert();
 }
 
 #[cfg(not(feature = "no_attach"))]
@@ -392,6 +423,27 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint("symbol", vec![], CLType::String, None));
     entry_points.add_entry_point(endpoint("uri", vec![], CLType::String, None));
     entry_points.add_entry_point(endpoint("total_supply", vec![], CLType::U256, None));
+    entry_points.add_entry_point(endpoint("is_paused", vec![], CLType::Bool, None));
+    entry_points.add_entry_point(endpoint(
+        "pause",
+        vec![],
+        CLType::Unit,
+        if secure {
+            Some("deployer_access")
+        } else {
+            None
+        },
+    ));
+    entry_points.add_entry_point(endpoint(
+        "unpause",
+        vec![],
+        CLType::Unit,
+        if secure {
+            Some("deployer_access")
+        } else {
+            None
+        },
+    ));
     entry_points.add_entry_point(endpoint(
         "balance_of",
         vec![Parameter::new("account", CLType::PublicKey)],
@@ -553,6 +605,7 @@ pub fn deploy(
         "total_supply".to_string(),
         storage::new_uref(U256::zero()).into(),
     );
+    named_keys.insert("paused".to_string(), storage::new_uref(false).into());
 
     let (contract_hash, _) =
         storage::add_contract_version(contract_package_hash, entry_points, named_keys);

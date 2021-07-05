@@ -126,7 +126,7 @@ mod tests {
             let mut hasher = DefaultHasher::new();
 
             for token_uri in token_uris.clone() {
-                let token_info = (self.total_supply, self.uri.clone(), token_uri.clone());
+                let token_info = (self.uri.clone(), token_uri.clone());
                 Hash::hash(&token_info, &mut hasher);
                 let token_id: TokenId = TokenId::from(hasher.finish().to_string());
                 self.token_uris.insert(token_id.clone(), token_uri);
@@ -143,6 +143,60 @@ mod tests {
         fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256) {
             let token_uris: Vec<URI> = vec![token_uri; count.as_usize()];
             self.mint_many(recipient, token_uris);
+        }
+
+        fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
+            let owner_tokens = self.tokens.get(&owner);
+            let owner_balance = self.balances.get(&owner);
+            let mut owner_new_balance = if owner_balance.is_none() {
+                U256::from(0)
+            } else {
+                owner_balance.unwrap().clone()
+            };
+            let mut owner_new_tokens = if owner_tokens.is_none() {
+                Vec::<TokenId>::new()
+            } else {
+                owner_tokens.unwrap().clone()
+            };
+
+            for token_id in token_ids.clone() {
+                let index = owner_new_tokens
+                    .iter()
+                    .position(|x| *x == token_id.clone())
+                    .unwrap();
+                owner_new_tokens.remove(index);
+                self.token_uris.remove(&token_id.clone());
+                self.belongs_to.remove(&token_id.clone());
+                owner_new_balance = owner_new_balance - 1;
+                self.total_supply = self.total_supply - 1;
+            }
+            self.balances.insert(owner.clone(), owner_new_balance);
+            self.tokens.insert(owner, owner_new_tokens);
+        }
+
+        fn burn_one(&mut self, owner: PublicKey, token_id: TokenId) {
+            let owner_tokens = self.tokens.get(&owner);
+            let owner_balance = self.balances.get(&owner);
+            let owner_new_balance = if owner_balance.is_none() {
+                U256::from(0)
+            } else {
+                owner_balance.unwrap().clone()
+            };
+            let mut owner_new_tokens = if owner_tokens.is_none() {
+                Vec::<TokenId>::new()
+            } else {
+                owner_tokens.unwrap().clone()
+            };
+            let index = owner_new_tokens
+                .iter()
+                .position(|x| *x == token_id.clone())
+                .unwrap();
+            owner_new_tokens.remove(index);
+            self.token_uris.remove(&token_id.clone());
+            self.belongs_to.remove(&token_id.clone());
+            self.total_supply = self.total_supply - 1;
+            self.balances.insert(owner.clone(), owner_new_balance - 1);
+            self.tokens.insert(owner, owner_new_tokens);
         }
 
         fn new_uref(&mut self, token_id: TokenId) -> Option<URef> {
@@ -262,6 +316,78 @@ mod tests {
             .unwrap();
         assert_eq!(ali_first_token_uri, URI::from("Casper Fan URI"));
         assert_eq!(ali_third_token_uri, URI::from("Casper Fan URI"));
+    }
+    #[test]
+    fn test_burn_many() {
+        let mut contract = TestContract::new();
+        let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+
+        assert_eq!(contract.total_supply(), U256::from(0));
+        contract.mint_many(
+            ali.clone(),
+            vec![
+                URI::from("Banana URI"),
+                URI::from("Orange URI"),
+                URI::from("Apple URI"),
+                URI::from("Grape URI"),
+            ],
+        );
+        assert_eq!(contract.total_supply(), U256::from(4));
+
+        let mut ali_balance = contract.balance_of(ali.clone());
+        assert_eq!(ali_balance, U256::from(4));
+
+        let mut ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
+        contract.burn_many(
+            ali.clone(),
+            vec![
+                ali_tokens.get(0).unwrap().clone(),
+                ali_tokens.get(3).unwrap().clone(),
+            ],
+        );
+        let mut ali_first_token_uri = contract.token_uri(ali_tokens.first().unwrap().clone());
+        assert_eq!(ali_first_token_uri, None);
+        let mut ali_last_token_uri = contract.token_uri(ali_tokens.last().unwrap().clone());
+        assert_eq!(ali_first_token_uri, None);
+        assert_eq!(ali_last_token_uri, None);
+
+        ali_tokens = contract.tokens(ali.clone());
+        ali_first_token_uri = contract.token_uri(ali_tokens.first().unwrap().clone());
+        ali_last_token_uri = contract.token_uri(ali_tokens.last().unwrap().clone());
+        assert_eq!(ali_first_token_uri, Some(URI::from("Orange URI")));
+        assert_eq!(ali_last_token_uri, Some(URI::from("Apple URI")));
+
+        assert_eq!(contract.total_supply(), U256::from(2));
+        ali_balance = contract.balance_of(ali);
+        assert_eq!(ali_balance, U256::from(2));
+    }
+    #[test]
+    fn test_burn_one() {
+        let mut contract = TestContract::new();
+        let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+
+        assert_eq!(contract.total_supply(), U256::from(0));
+        contract.mint_many(
+            ali.clone(),
+            vec![URI::from("Banana URI"), URI::from("Orange URI")],
+        );
+        assert_eq!(contract.total_supply(), U256::from(2));
+
+        let mut ali_balance = contract.balance_of(ali.clone());
+        assert_eq!(ali_balance, U256::from(2));
+
+        let mut ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
+        contract.burn_one(ali.clone(), ali_tokens.get(0).unwrap().clone());
+        let mut ali_first_token_uri = contract.token_uri(ali_tokens.get(0).unwrap().clone());
+        assert_eq!(ali_first_token_uri, None);
+
+        ali_tokens = contract.tokens(ali.clone());
+        ali_first_token_uri = contract.token_uri(ali_tokens.get(0).unwrap().clone());
+        assert_eq!(ali_first_token_uri, Some(URI::from("Orange URI")));
+
+        assert_eq!(contract.total_supply(), U256::from(1));
+        ali_balance = contract.balance_of(ali);
+        assert_eq!(ali_balance, U256::from(1));
     }
     #[test]
     fn test_transfer_token() {

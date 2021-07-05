@@ -73,6 +73,48 @@ fn test_mint_many() {
 }
 
 #[test]
+fn test_burn_many() {
+    let mut contract = CasperCEP47Contract::deploy();
+    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let token_uris: Vec<URI> = vec![URI::from("Casper Golden Card"), URI::from("Casper Siver Card"), URI::from("Casper Bronze Card"), URI::from("Mona Lisa")];
+    contract.mint_many(ali.clone(), token_uris);
+
+    let mut ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
+
+    assert_eq!(contract.total_supply(), U256::from(4));
+    assert_eq!(contract.balance_of(ali.clone()), U256::from(4));
+    assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(4));
+
+    contract.burn_many(ali.clone(), vec![ali_tokens.first().unwrap().clone(), ali_tokens.last().unwrap().clone()]);
+    assert_eq!(contract.total_supply(), U256::from(2));
+    assert_eq!(contract.balance_of(ali.clone()), U256::from(2));
+
+    ali_tokens = contract.tokens(ali.clone());
+    assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(2));
+}
+
+#[test]
+fn test_burn_one() {
+    let mut contract = CasperCEP47Contract::deploy();
+    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let token_uris: Vec<URI> = vec![URI::from("Casper Golden Card"), URI::from("Mona Lisa")];
+    contract.mint_many(ali.clone(), token_uris);
+
+    let mut ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
+
+    assert_eq!(contract.total_supply(), U256::from(2));
+    assert_eq!(contract.balance_of(ali.clone()), U256::from(2));
+    assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(2));
+
+    contract.burn_one(ali.clone(), ali_tokens.first().unwrap().clone());
+    assert_eq!(contract.total_supply(), U256::from(1));
+    assert_eq!(contract.balance_of(ali.clone()), U256::from(1));
+
+    ali_tokens = contract.tokens(ali.clone());
+    assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(1));
+}
+
+#[test]
 fn test_transfer_token() {
     let mut contract = CasperCEP47Contract::deploy();
     let ali: PublicKey = SecretKey::ed25519_from_bytes([3u8; 32]).unwrap().into();

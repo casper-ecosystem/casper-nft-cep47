@@ -1,5 +1,5 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext};
-use casper_types::{account::AccountHash, runtime_args, AsymmetricType, PublicKey, RuntimeArgs};
+use casper_types::{account::AccountHash, runtime_args, PublicKey, RuntimeArgs};
 
 pub struct MarketTest {
     pub market_hash: Hash,
@@ -22,20 +22,20 @@ impl MarketTest {
         Self { market_hash }
     }
 
-    fn call(
-        &self,
-        context: &mut TestContext,
-        account: &AccountHash,
-        method: &str,
-        args: RuntimeArgs,
-    ) {
-        let code = Code::Hash(self.market_hash, method.to_string());
-        let session = SessionBuilder::new(code, args)
-            .with_address(*account)
-            .with_authorization_keys(&[*account])
-            .build();
-        context.run(session);
-    }
+    // fn call(
+    //     &self,
+    //     context: &mut TestContext,
+    //     account: &AccountHash,
+    //     method: &str,
+    //     args: RuntimeArgs,
+    // ) {
+    //     let code = Code::Hash(self.market_hash, method.to_string());
+    //     let session = SessionBuilder::new(code, args)
+    //         .with_address(*account)
+    //         .with_authorization_keys(&[*account])
+    //         .build();
+    //     context.run(session);
+    // }
 
     pub fn call_test(&self, context: &mut TestContext, account: &PublicKey, seller: &PublicKey) {
         let session_code = Code::from("send_tokens.wasm");

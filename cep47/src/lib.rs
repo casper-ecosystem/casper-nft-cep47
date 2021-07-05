@@ -103,7 +103,7 @@ impl CEP47Storage for CasperCEP47Storage {
 
         let mut hasher = DefaultHasher::new();
         for token_uri in token_uris.clone() {
-            let token_info = (total_supply, uri.clone(), token_uri.clone());
+            let token_info = (uri.clone(), token_uri.clone());
             Hash::hash(&token_info, &mut hasher);
 
             let token_id = TokenId::from(hasher.finish().to_string());
@@ -123,6 +123,41 @@ impl CEP47Storage for CasperCEP47Storage {
     fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256) {
         let token_uris: Vec<URI> = vec![token_uri; count.as_usize()];
         self.mint_many(recipient, token_uris);
+    }
+    fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
+        let mut owner_tokens = self.get_tokens(owner.clone());
+        let mut owner_balance = self.balance_of(owner.clone());
+        let mut total_supply = self.total_supply();
+
+        for token_id in token_ids.clone() {
+            let index = owner_tokens
+                .iter()
+                .position(|x| *x == token_id.clone())
+                .unwrap_or_revert();
+            owner_tokens.remove(index);
+            remove_key(&uri_key(&token_id));
+            remove_key(&owner_key(&token_id));
+            owner_balance = owner_balance - 1;
+            total_supply = total_supply - 1;
+        }
+        set_key(&balance_key(&owner.to_account_hash()), owner_balance);
+        set_key(&token_key(&owner.to_account_hash()), owner_tokens);
+        set_key("total_supply", total_supply);
+    }
+    fn burn_one(&mut self, owner: PublicKey, token_id: TokenId) {
+        let mut owner_tokens = self.get_tokens(owner.clone());
+        let owner_balance = self.balance_of(owner.clone());
+        let total_supply = self.total_supply();
+        let index = owner_tokens
+            .iter()
+            .position(|x| *x == token_id.clone())
+            .unwrap_or_revert();
+        owner_tokens.remove(index);
+        remove_key(&uri_key(&token_id));
+        remove_key(&owner_key(&token_id));
+        set_key(&balance_key(&owner.to_account_hash()), owner_balance - 1);
+        set_key(&token_key(&owner.to_account_hash()), owner_tokens);
+        set_key("total_supply", total_supply - 1);
     }
     fn new_uref(&mut self, token_id: TokenId) -> Option<URef> {
         let value_ref =
@@ -269,6 +304,24 @@ pub extern "C" fn mint_copies() {
     contract.mint_copies(recipient, token_uri, count);
 }
 
+#[cfg(not(feature = "no_burn_many"))]
+#[no_mangle]
+pub extern "C" fn burn_many() {
+    let owner: PublicKey = runtime::get_named_arg("owner");
+    let token_ids: Vec<TokenId> = runtime::get_named_arg("token_ids");
+    let mut contract = CasperCEP47Contract::new();
+    contract.burn_many(owner, token_ids);
+}
+
+#[cfg(not(feature = "no_burn_one"))]
+#[no_mangle]
+pub extern "C" fn burn_one() {
+    let owner: PublicKey = runtime::get_named_arg("owner");
+    let token_id: TokenId = runtime::get_named_arg("token_id");
+    let mut contract = CasperCEP47Contract::new();
+    contract.burn_one(owner, token_id);
+}
+
 #[cfg(not(feature = "no_transfer_token"))]
 #[no_mangle]
 pub extern "C" fn transfer_token() {
@@ -387,6 +440,32 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         vec![
             Parameter::new("recipient", CLType::PublicKey),
             Parameter::new("token_uris", CLType::List(Box::new(CLType::String))),
+        ],
+        CLType::Unit,
+        if secure {
+            Some("deployer_access")
+        } else {
+            None
+        },
+    ));
+    entry_points.add_entry_point(endpoint(
+        "burn_many",
+        vec![
+            Parameter::new("owner", CLType::PublicKey),
+            Parameter::new("token_ids", CLType::List(Box::new(CLType::String))),
+        ],
+        CLType::Unit,
+        if secure {
+            Some("deployer_access")
+        } else {
+            None
+        },
+    ));
+    entry_points.add_entry_point(endpoint(
+        "burn_one",
+        vec![
+            Parameter::new("owner", CLType::PublicKey),
+            Parameter::new("token_id", CLType::List(Box::new(CLType::String))),
         ],
         CLType::Unit,
         if secure {

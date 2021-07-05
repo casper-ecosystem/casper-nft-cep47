@@ -1,6 +1,6 @@
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
-    account::AccountHash, bytesrepr::FromBytes, runtime_args, AsymmetricType, CLTyped, PublicKey,
+    account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, PublicKey,
     RuntimeArgs, SecretKey, URef, U256, U512,
 };
 
@@ -152,6 +152,26 @@ impl CasperCEP47Contract {
             runtime_args! {
                 "recipient" => recipient,
                 "token_uris" => token_uris
+            },
+        );
+    }
+
+    pub fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
+        self.call(
+            "burn_many",
+            runtime_args! {
+                "owner" => owner,
+                "token_ids" => token_ids
+            },
+        );
+    }
+
+    pub fn burn_one(&mut self, owner: PublicKey, token_id: TokenId) {
+        self.call(
+            "burn_one",
+            runtime_args! {
+                "owner" => owner,
+                "token_id" => token_id
             },
         );
     }

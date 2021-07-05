@@ -71,6 +71,14 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         self.storage_mut().mint_copies(recipient, token_uri, count);
     }
 
+    fn burn_one(&mut self, owner: PublicKey, token_id: TokenId) {
+        self.storage_mut().burn_one(owner, token_id);
+    }
+
+    fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
+        self.storage_mut().burn_many(owner, token_ids);
+    }
+
     // Transfer functions.
     fn transfer_token(
         &mut self,
@@ -165,6 +173,8 @@ pub trait CEP47Storage {
     fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>);
     fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>);
     fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256);
+    fn burn_one(&mut self, owner: PublicKey, token_id: TokenId);
+    fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>);
 
     fn new_uref(&mut self, token_id: TokenId) -> Option<URef>;
     fn del_uref(&mut self, token_uref: URef) -> Option<TokenId>;

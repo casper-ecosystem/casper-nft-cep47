@@ -164,7 +164,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
 }
 
 pub fn deploy(entry_points: EntryPoints, contract_package_hash: ContractPackageHash) {
-    let mut named_keys = NamedKeys::new();
+    let named_keys = NamedKeys::new();
     // named_keys.insert("name".to_string(), storage::new_uref(token_name).into());
 
     let (contract_hash, _) =

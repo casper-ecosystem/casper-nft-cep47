@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+    "cep47",
 	"tests",
     "dragons-nft",
     "marketplace"

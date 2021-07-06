@@ -4,9 +4,6 @@
 
 extern crate alloc;
 
-pub mod logic;
-pub mod logic_tests;
-
 use alloc::{
     collections::{BTreeMap, BTreeSet},
     string::String,
@@ -23,8 +20,8 @@ use casper_types::{
     EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, Key, Parameter, PublicKey, URef,
     U256,
 };
+use cep47_logic::{CEP47Contract, CEP47Storage, TokenId, WithStorage, URI};
 use core::convert::TryInto;
-use logic::{CEP47Contract, CEP47Storage, TokenId, WithStorage, URI};
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},

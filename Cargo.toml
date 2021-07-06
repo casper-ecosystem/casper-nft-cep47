@@ -1,10 +1,10 @@
 [workspace]
 
 members = [
+    "cep47-logic",
     "cep47",
-	"tests",
     "dragons-nft",
-    "marketplace"
+	"dragons-nft-tests"
 ]
 
 [profile.release]

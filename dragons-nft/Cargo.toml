@@ -4,11 +4,9 @@ version = "0.1.0"
 authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-contract = { package="casper-contract", version = "1.2.0" }
-types = { package="casper-types", version = "1.2.0" }
+casper-contract = "1.2.0"
+casper-types = "1.2.0"
 cep47 = { path="../cep47", features = ["no_owner_of"]}
 
 [[bin]]
@@ -19,4 +17,5 @@ doctest = false
 test = false
 
 [features]
-default = ["contract/std", "types/std"]
+default = ["casper-contract/std", "casper-types/std"]
+

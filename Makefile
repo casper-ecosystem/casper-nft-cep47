@@ -3,19 +3,19 @@ prepare:
 
 build-contract:
 	cargo build --release -p dragons-nft --target wasm32-unknown-unknown
-	cargo build --release -p marketplace --target wasm32-unknown-unknown
 
 test-only:
-	cargo test --workspace
+	cargo test -p cep47-logic
+	cargo test -p dragons-nft-tests
 
 copy-wasm-file-to-test:
-	mkdir -p tests/wasm
-	cp target/wasm32-unknown-unknown/release/*.wasm tests/wasm
+	mkdir -p dragons-nft-tests/wasm
+	cp target/wasm32-unknown-unknown/release/*.wasm dragons-nft-tests/wasm
 
 test: build-contract copy-wasm-file-to-test test-only
 
 clippy:
-	cargo clippy --all-targets --all -- -D warnings -A renamed_and_removed_lints
+	cargo clippy --all-targets --all
 
 check-lint: clippy
 	cargo fmt --all -- --check
@@ -27,4 +27,4 @@ lint: clippy format
 	
 clean:
 	cargo clean
-	rm -rf tests/wasm/*.wasm
+	rm -rf dragons-nft-tests/wasm/*.wasm

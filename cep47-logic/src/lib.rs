@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
+
 use casper_types::{ApiError, AsymmetricType, PublicKey, URef, U256};
+
+#[cfg(test)]
+pub mod tests;
 
 pub type TokenId = String;
 pub type URI = String;

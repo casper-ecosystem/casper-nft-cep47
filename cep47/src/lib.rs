@@ -20,7 +20,9 @@ use casper_types::{
     EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, Key, Parameter, PublicKey, URef,
     U256,
 };
-use cep47_logic::{CEP47Contract, CEP47Storage, TokenId, WithStorage, URI};
+pub use cep47_logic::Meta;
+use cep47_logic::{CEP47Contract, CEP47Storage, TokenId, WithStorage};
+
 use core::convert::TryInto;
 use std::{
     collections::hash_map::DefaultHasher,
@@ -41,8 +43,8 @@ impl CEP47Storage for CasperCEP47Storage {
     fn symbol(&self) -> String {
         get_key::<String>("symbol").unwrap()
     }
-    fn uri(&self) -> URI {
-        get_key::<URI>("uri").unwrap()
+    fn meta(&self) -> Meta {
+        get_key::<Meta>("meta").unwrap()
     }
 
     // Getters
@@ -60,8 +62,8 @@ impl CEP47Storage for CasperCEP47Storage {
     fn total_supply(&self) -> U256 {
         get_key::<U256>("total_supply").unwrap()
     }
-    fn token_uri(&self, token_id: TokenId) -> Option<URI> {
-        get_key::<URI>(&uri_key(&token_id))
+    fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
+        get_key::<Meta>(&meta_key(&token_id))
     }
     fn is_paused(&self) -> bool {
         get_key::<bool>("paused").unwrap()
@@ -101,24 +103,24 @@ impl CEP47Storage for CasperCEP47Storage {
             prev_total_supply - owner_prev_balance + owner_new_balance,
         );
     }
-    fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>) {
+    fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>) {
         let mut recipient_tokens = self.get_tokens(recipient.clone());
         let mut recipient_balance = self.balance_of(recipient.clone());
         let mut total_supply = self.total_supply();
-        let uri = self.uri();
+        let meta = self.meta();
 
         let mut hasher = DefaultHasher::new();
-        for token_uri in token_uris.clone() {
-            let token_info = (uri.clone(), token_uri.clone());
+        for token_meta in token_metas.clone() {
+            let token_info = (meta.clone(), token_meta.clone());
             Hash::hash(&token_info, &mut hasher);
 
             let token_id = TokenId::from(hasher.finish().to_string());
             recipient_tokens.push(token_id.clone());
             total_supply = total_supply + 1;
-            set_key(&uri_key(&token_id), token_uri);
+            set_key(&meta_key(&token_id), token_meta);
             set_key(&owner_key(&token_id), recipient.clone());
         }
-        recipient_balance = recipient_balance + U256::from(token_uris.len() as u64);
+        recipient_balance = recipient_balance + U256::from(token_metas.len() as u64);
         set_key(
             &balance_key(&recipient.to_account_hash()),
             recipient_balance,
@@ -126,9 +128,9 @@ impl CEP47Storage for CasperCEP47Storage {
         set_key(&token_key(&recipient.to_account_hash()), recipient_tokens);
         set_key("total_supply", total_supply);
     }
-    fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256) {
-        let token_uris: Vec<URI> = vec![token_uri; count.as_usize()];
-        self.mint_many(recipient, token_uris);
+    fn mint_copies(&mut self, recipient: PublicKey, token_meta: Meta, count: U256) {
+        let token_metas: Vec<Meta> = vec![token_meta; count.as_usize()];
+        self.mint_many(recipient, token_metas);
     }
     fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
         let mut owner_tokens = self.get_tokens(owner.clone());
@@ -141,7 +143,7 @@ impl CEP47Storage for CasperCEP47Storage {
                 .position(|x| *x == token_id.clone())
                 .unwrap_or_revert();
             owner_tokens.remove(index);
-            remove_key(&uri_key(&token_id));
+            remove_key(&meta_key(&token_id));
             remove_key(&owner_key(&token_id));
             owner_balance = owner_balance - 1;
             total_supply = total_supply - 1;
@@ -159,7 +161,7 @@ impl CEP47Storage for CasperCEP47Storage {
             .position(|x| *x == token_id.clone())
             .unwrap_or_revert();
         owner_tokens.remove(index);
-        remove_key(&uri_key(&token_id));
+        remove_key(&meta_key(&token_id));
         remove_key(&owner_key(&token_id));
         set_key(&balance_key(&owner.to_account_hash()), owner_balance - 1);
         set_key(&token_key(&owner.to_account_hash()), owner_tokens);
@@ -236,11 +238,11 @@ pub extern "C" fn symbol() {
     ret(contract.symbol())
 }
 
-#[cfg(not(feature = "no_uri"))]
+#[cfg(not(feature = "no_meta"))]
 #[no_mangle]
-pub extern "C" fn uri() {
+pub extern "C" fn meta() {
     let contract = CasperCEP47Contract::new();
-    ret(contract.uri())
+    ret(contract.meta())
 }
 
 #[cfg(not(feature = "no_balance_of"))]
@@ -266,12 +268,12 @@ pub extern "C" fn total_supply() {
     ret(contract.total_supply())
 }
 
-#[cfg(not(feature = "no_token_uri"))]
+#[cfg(not(feature = "no_token_meta"))]
 #[no_mangle]
-pub extern "C" fn token_uri() {
+pub extern "C" fn token_meta() {
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let contract = CasperCEP47Contract::new();
-    ret(contract.token_uri(token_id))
+    ret(contract.token_meta(token_id))
 }
 
 #[cfg(not(feature = "no_tokens"))]
@@ -307,28 +309,28 @@ pub extern "C" fn unpause() {
 #[no_mangle]
 pub extern "C" fn mint_one() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
-    let token_uri: URI = runtime::get_named_arg("token_uri");
+    let token_meta: Meta = runtime::get_named_arg("token_meta");
     let mut contract = CasperCEP47Contract::new();
-    contract.mint_one(recipient, token_uri);
+    contract.mint_one(recipient, token_meta);
 }
 
 #[cfg(not(feature = "no_mint_many"))]
 #[no_mangle]
 pub extern "C" fn mint_many() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
-    let token_uris: Vec<URI> = runtime::get_named_arg("token_uris");
+    let token_metas: Vec<Meta> = runtime::get_named_arg("token_metas");
     let mut contract = CasperCEP47Contract::new();
-    contract.mint_many(recipient, token_uris);
+    contract.mint_many(recipient, token_metas);
 }
 
 #[cfg(not(feature = "no_mint_copies"))]
 #[no_mangle]
 pub extern "C" fn mint_copies() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
-    let token_uri: URI = runtime::get_named_arg("token_uri");
+    let token_meta: Meta = runtime::get_named_arg("token_meta");
     let count: U256 = runtime::get_named_arg("count");
     let mut contract = CasperCEP47Contract::new();
-    contract.mint_copies(recipient, token_uri, count);
+    contract.mint_copies(recipient, token_meta, count);
 }
 
 #[cfg(not(feature = "no_burn_many"))]
@@ -430,7 +432,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     let mut entry_points = EntryPoints::new();
     entry_points.add_entry_point(endpoint("name", vec![], CLType::String, None));
     entry_points.add_entry_point(endpoint("symbol", vec![], CLType::String, None));
-    entry_points.add_entry_point(endpoint("uri", vec![], CLType::String, None));
+    entry_points.add_entry_point(endpoint("meta", vec![], CLType::String, None));
     entry_points.add_entry_point(endpoint("total_supply", vec![], CLType::U256, None));
     entry_points.add_entry_point(endpoint("is_paused", vec![], CLType::Bool, None));
     entry_points.add_entry_point(endpoint(
@@ -466,7 +468,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         None,
     ));
     entry_points.add_entry_point(endpoint(
-        "token_uri",
+        "token_meta",
         vec![Parameter::new("token_id", CLType::String)],
         CLType::Option(Box::new(CLType::String)),
         None,
@@ -487,7 +489,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_one",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_uri", CLType::String),
+            Parameter::new("token_meta", CLType::String),
         ],
         CLType::Unit,
         if secure {
@@ -500,7 +502,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_many",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_uris", CLType::List(Box::new(CLType::String))),
+            Parameter::new("token_metas", CLType::List(Box::new(CLType::String))),
         ],
         CLType::Unit,
         if secure {
@@ -539,7 +541,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_copies",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_uri", CLType::String),
+            Parameter::new("token_meta", CLType::String),
             Parameter::new("count", CLType::U256),
         ],
         CLType::Unit,
@@ -600,17 +602,20 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
 }
 
 pub fn deploy(
-    token_name: &str,
-    token_symbol: &str,
-    token_uri: &str,
+    token_name: String,
+    token_symbol: String,
+    token_meta: Meta,
     entry_points: EntryPoints,
     contract_package_hash: ContractPackageHash,
     paused: bool,
 ) {
     let mut named_keys = NamedKeys::new();
-    named_keys.insert("name".to_string(), storage::new_uref(token_name).into());
+    named_keys.insert(
+        "name".to_string(),
+        storage::new_uref(token_name.clone()).into(),
+    );
     named_keys.insert("symbol".to_string(), storage::new_uref(token_symbol).into());
-    named_keys.insert("uri".to_string(), storage::new_uref(token_uri).into());
+    named_keys.insert("meta".to_string(), storage::new_uref(token_meta).into());
     named_keys.insert(
         "total_supply".to_string(),
         storage::new_uref(U256::zero()).into(),
@@ -620,7 +625,7 @@ pub fn deploy(
     let (contract_hash, _) =
         storage::add_contract_version(contract_package_hash, entry_points, named_keys);
     runtime::put_key(
-        format!("{}_contract", token_name).as_str(),
+        format!("{}_contract", &token_name).as_str(),
         contract_hash.into(),
     );
     let contract_hash_pack = storage::new_uref(contract_hash);
@@ -671,8 +676,8 @@ fn owner_key(token_id: &TokenId) -> String {
     format!("owners_{}", token_id)
 }
 
-fn uri_key(token_id: &TokenId) -> String {
-    format!("uris_{}", token_id)
+fn meta_key(token_id: &TokenId) -> String {
+    format!("metas_{}", token_id)
 }
 
 fn uref_key(uref: &URef) -> String {

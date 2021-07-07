@@ -9,3 +9,4 @@ casper-types = "1.2.0"
 
 [dev-dependencies]
 rand = "0.7.3"
+maplit = "1.0.2"

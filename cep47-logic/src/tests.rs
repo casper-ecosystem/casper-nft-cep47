@@ -2,7 +2,7 @@ use casper_types::AccessRights;
 use rand::Rng;
 
 use crate::{
-    AsymmetricType, CEP47Contract, CEP47Storage, PublicKey, TokenId, URef, WithStorage, U256, URI,
+    AsymmetricType, CEP47Contract, CEP47Storage, Meta, PublicKey, TokenId, URef, WithStorage, U256,
 };
 use std::{
     collections::{hash_map::DefaultHasher, BTreeMap},
@@ -13,11 +13,11 @@ use std::{
 struct TestStorage {
     name: String,
     symbol: String,
-    uri: URI,
+    meta: Meta,
     paused: bool,
     total_supply: U256,
     tokens: BTreeMap<PublicKey, Vec<TokenId>>,
-    token_uris: BTreeMap<TokenId, URI>,
+    token_metas: BTreeMap<TokenId, Meta>,
     balances: BTreeMap<PublicKey, U256>,
     belongs_to: BTreeMap<TokenId, PublicKey>,
     urefs: BTreeMap<URef, TokenId>,
@@ -28,13 +28,13 @@ impl TestStorage {
         TestStorage {
             name: String::from("Casper Enhancement Proposal 47"),
             symbol: String::from("CEP47"),
-            uri: URI::from("https://github.com/casper-ecosystem/casper-nft-cep47"),
+            meta: meta::contract_info(),
             paused: false,
             total_supply: U256::from(0),
             tokens: BTreeMap::new(),
             balances: BTreeMap::new(),
             belongs_to: BTreeMap::new(),
-            token_uris: BTreeMap::new(),
+            token_metas: BTreeMap::new(),
             urefs: BTreeMap::new(),
         }
     }
@@ -49,8 +49,8 @@ impl CEP47Storage for TestStorage {
         self.symbol.clone()
     }
 
-    fn uri(&self) -> URI {
-        self.uri.clone()
+    fn meta(&self) -> Meta {
+        self.meta.clone()
     }
 
     fn balance_of(&self, owner: PublicKey) -> U256 {
@@ -75,10 +75,10 @@ impl CEP47Storage for TestStorage {
         self.total_supply
     }
 
-    fn token_uri(&self, token_id: TokenId) -> Option<URI> {
-        let uri = self.token_uris.get(&token_id);
-        if uri.is_some() {
-            Some(uri.unwrap().clone())
+    fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
+        let meta = self.token_metas.get(&token_id);
+        if meta.is_some() {
+            Some(meta.unwrap().clone())
         } else {
             None
         }
@@ -120,7 +120,7 @@ impl CEP47Storage for TestStorage {
         self.balances.insert(owner, owner_new_balance);
     }
 
-    fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>) {
+    fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>) {
         let recipient_balance = self.balances.get(&recipient);
         let recipient_tokens = self.tokens.get(&recipient);
         let mut recipient_new_balance = if recipient_balance.is_none() {
@@ -136,11 +136,11 @@ impl CEP47Storage for TestStorage {
 
         let mut hasher = DefaultHasher::new();
 
-        for token_uri in token_uris.clone() {
-            let token_info = (self.uri.clone(), token_uri.clone());
+        for token_meta in token_metas.clone() {
+            let token_info = (self.meta.clone(), token_meta.clone(), self.total_supply());
             Hash::hash(&token_info, &mut hasher);
             let token_id: TokenId = TokenId::from(hasher.finish().to_string());
-            self.token_uris.insert(token_id.clone(), token_uri);
+            self.token_metas.insert(token_id.clone(), token_meta);
             recipient_new_tokens.push(token_id.clone());
             self.belongs_to.insert(token_id, recipient.clone());
             recipient_new_balance = recipient_new_balance + 1;
@@ -151,9 +151,9 @@ impl CEP47Storage for TestStorage {
         self.tokens.insert(recipient, recipient_new_tokens);
     }
 
-    fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256) {
-        let token_uris: Vec<URI> = vec![token_uri; count.as_usize()];
-        self.mint_many(recipient, token_uris);
+    fn mint_copies(&mut self, recipient: PublicKey, token_meta: Meta, count: U256) {
+        let token_metas: Vec<Meta> = vec![token_meta; count.as_usize()];
+        self.mint_many(recipient, token_metas);
     }
 
     fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
@@ -176,7 +176,7 @@ impl CEP47Storage for TestStorage {
                 .position(|x| *x == token_id.clone())
                 .unwrap();
             owner_new_tokens.remove(index);
-            self.token_uris.remove(&token_id.clone());
+            self.token_metas.remove(&token_id.clone());
             self.belongs_to.remove(&token_id.clone());
             owner_new_balance = owner_new_balance - 1;
             self.total_supply = self.total_supply - 1;
@@ -203,7 +203,7 @@ impl CEP47Storage for TestStorage {
             .position(|x| *x == token_id.clone())
             .unwrap();
         owner_new_tokens.remove(index);
-        self.token_uris.remove(&token_id.clone());
+        self.token_metas.remove(&token_id.clone());
         self.belongs_to.remove(&token_id.clone());
         self.total_supply = self.total_supply - 1;
         self.balances.insert(owner.clone(), owner_new_balance - 1);
@@ -262,6 +262,37 @@ impl WithStorage<TestStorage> for TestContract {
 
 impl CEP47Contract<TestStorage> for TestContract {}
 
+mod meta {
+    use super::BTreeMap;
+
+    pub fn contract_info() -> BTreeMap<String, String> {
+        btreemap! {
+            "github".to_string() => "https://github.com/casper-ecosystem/casper-nft-cep47".to_string()
+        }
+    }
+
+    pub fn apple() -> BTreeMap<String, String> {
+        btreemap! {
+            "fruit".to_string() => "Apple".to_string(),
+            "size".to_string() => "A".to_string()
+        }
+    }
+
+    pub fn orange() -> BTreeMap<String, String> {
+        btreemap! {
+            "fruit".to_string() => "Orange".to_string(),
+            "size".to_string() => "B".to_string()
+        }
+    }
+
+    pub fn banana() -> BTreeMap<String, String> {
+        btreemap! {
+            "fruit".to_string() => "Banana".to_string(),
+            "size".to_string() => "B".to_string()
+        }
+    }
+}
+
 #[test]
 fn test_metadata() {
     let contract = TestContract::new();
@@ -270,11 +301,9 @@ fn test_metadata() {
         String::from("Casper Enhancement Proposal 47")
     );
     assert_eq!(contract.symbol(), String::from("CEP47"));
-    assert_eq!(
-        contract.uri(),
-        String::from("https://github.com/casper-ecosystem/casper-nft-cep47")
-    );
+    assert_eq!(contract.meta(), meta::contract_info());
 }
+
 #[test]
 fn test_mint_many() {
     let mut contract = TestContract::new();
@@ -282,11 +311,8 @@ fn test_mint_many() {
     let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_many(ali.clone(), vec![URI::from("Apple URI")]);
-    contract.mint_many(
-        bob.clone(),
-        vec![URI::from("Banana URI"), URI::from("Orange URI")],
-    );
+    contract.mint_many(ali.clone(), vec![meta::apple()]);
+    contract.mint_many(bob.clone(), vec![meta::banana(), meta::orange()]);
     assert_eq!(contract.total_supply(), U256::from(3));
 
     let ali_balance = contract.balance_of(ali.clone());
@@ -295,16 +321,16 @@ fn test_mint_many() {
     assert_eq!(bob_balance, U256::from(2));
 
     let ali_tokens: Vec<TokenId> = contract.tokens(ali);
-    let ali_first_token_uri: URI = contract
-        .token_uri(ali_tokens.get(0).unwrap().clone())
+    let ali_first_token_meta: Meta = contract
+        .token_meta(ali_tokens.get(0).unwrap().clone())
         .unwrap();
-    assert_eq!(ali_first_token_uri, URI::from("Apple URI"));
+    assert_eq!(ali_first_token_meta, meta::apple());
 
     let bob_tokens: Vec<TokenId> = contract.tokens(bob);
-    let bob_first_token_uri: URI = contract
-        .token_uri(bob_tokens.get(1).unwrap().clone())
+    let bob_first_token_meta: Meta = contract
+        .token_meta(bob_tokens.get(1).unwrap().clone())
         .unwrap();
-    assert_eq!(bob_first_token_uri, URI::from("Orange URI"));
+    assert_eq!(bob_first_token_meta, meta::orange());
 }
 #[test]
 fn test_mint_copies() {
@@ -312,65 +338,52 @@ fn test_mint_copies() {
     let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_copies(ali.clone(), URI::from("Casper Fan URI"), U256::from(7));
+    contract.mint_copies(ali.clone(), meta::apple(), U256::from(7));
     assert_eq!(contract.total_supply(), U256::from(7));
 
     let ali_balance = contract.balance_of(ali.clone());
     assert_eq!(ali_balance, U256::from(7));
 
     let ali_tokens: Vec<TokenId> = contract.tokens(ali);
-    let ali_first_token_uri: URI = contract
-        .token_uri(ali_tokens.get(0).unwrap().clone())
+    let ali_first_token_meta: Meta = contract
+        .token_meta(ali_tokens.get(0).unwrap().clone())
         .unwrap();
-    let ali_third_token_uri: URI = contract
-        .token_uri(ali_tokens.get(2).unwrap().clone())
+    let ali_third_token_meta: Meta = contract
+        .token_meta(ali_tokens.get(2).unwrap().clone())
         .unwrap();
-    assert_eq!(ali_first_token_uri, URI::from("Casper Fan URI"));
-    assert_eq!(ali_third_token_uri, URI::from("Casper Fan URI"));
+    assert_eq!(ali_first_token_meta, meta::apple());
+    assert_eq!(ali_third_token_meta, meta::apple());
 }
 #[test]
 fn test_burn_many() {
     let mut contract = TestContract::new();
     let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
-
     assert_eq!(contract.total_supply(), U256::from(0));
+
     contract.mint_many(
         ali.clone(),
-        vec![
-            URI::from("Banana URI"),
-            URI::from("Orange URI"),
-            URI::from("Apple URI"),
-            URI::from("Grape URI"),
-        ],
+        vec![meta::banana(), meta::orange(), meta::apple()],
     );
-    assert_eq!(contract.total_supply(), U256::from(4));
+    assert_eq!(contract.total_supply(), U256::from(3));
 
-    let mut ali_balance = contract.balance_of(ali.clone());
-    assert_eq!(ali_balance, U256::from(4));
+    let ali_balance = contract.balance_of(ali.clone());
+    assert_eq!(ali_balance, U256::from(3));
 
-    let mut ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
-    contract.burn_many(
-        ali.clone(),
-        vec![
-            ali_tokens.get(0).unwrap().clone(),
-            ali_tokens.get(3).unwrap().clone(),
-        ],
-    );
-    let mut ali_first_token_uri = contract.token_uri(ali_tokens.first().unwrap().clone());
-    assert_eq!(ali_first_token_uri, None);
-    let mut ali_last_token_uri = contract.token_uri(ali_tokens.last().unwrap().clone());
-    assert_eq!(ali_first_token_uri, None);
-    assert_eq!(ali_last_token_uri, None);
+    let ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
+    let banana = ali_tokens.get(0).unwrap().clone();
+    let orange = ali_tokens.get(1).unwrap().clone();
+    let apple = ali_tokens.get(2).unwrap().clone();
 
-    ali_tokens = contract.tokens(ali.clone());
-    ali_first_token_uri = contract.token_uri(ali_tokens.first().unwrap().clone());
-    ali_last_token_uri = contract.token_uri(ali_tokens.last().unwrap().clone());
-    assert_eq!(ali_first_token_uri, Some(URI::from("Orange URI")));
-    assert_eq!(ali_last_token_uri, Some(URI::from("Apple URI")));
+    contract.burn_many(ali.clone(), vec![banana.clone(), apple.clone()]);
+    let ali_tokens_after_burn = contract.tokens(ali.clone());
+    assert_eq!(ali_tokens_after_burn, vec![orange.clone()]);
 
-    assert_eq!(contract.total_supply(), U256::from(2));
-    ali_balance = contract.balance_of(ali);
-    assert_eq!(ali_balance, U256::from(2));
+    assert!(contract.token_meta(banana.clone()).is_none());
+    assert!(contract.token_meta(orange.clone()).is_some());
+    assert!(contract.token_meta(apple.clone()).is_none());
+
+    assert_eq!(contract.total_supply(), U256::from(1));
+    assert_eq!(contract.balance_of(ali), U256::from(1));
 }
 #[test]
 fn test_burn_one() {
@@ -378,10 +391,7 @@ fn test_burn_one() {
     let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_many(
-        ali.clone(),
-        vec![URI::from("Banana URI"), URI::from("Orange URI")],
-    );
+    contract.mint_many(ali.clone(), vec![meta::banana(), meta::orange()]);
     assert_eq!(contract.total_supply(), U256::from(2));
 
     let mut ali_balance = contract.balance_of(ali.clone());
@@ -389,12 +399,12 @@ fn test_burn_one() {
 
     let mut ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
     contract.burn_one(ali.clone(), ali_tokens.get(0).unwrap().clone());
-    let mut ali_first_token_uri = contract.token_uri(ali_tokens.get(0).unwrap().clone());
-    assert_eq!(ali_first_token_uri, None);
+    let mut ali_first_token_meta = contract.token_meta(ali_tokens.get(0).unwrap().clone());
+    assert_eq!(ali_first_token_meta, None);
 
     ali_tokens = contract.tokens(ali.clone());
-    ali_first_token_uri = contract.token_uri(ali_tokens.get(0).unwrap().clone());
-    assert_eq!(ali_first_token_uri, Some(URI::from("Orange URI")));
+    ali_first_token_meta = contract.token_meta(ali_tokens.get(0).unwrap().clone());
+    assert_eq!(ali_first_token_meta, Some(meta::orange()));
 
     assert_eq!(contract.total_supply(), U256::from(1));
     ali_balance = contract.balance_of(ali);
@@ -407,7 +417,7 @@ fn test_transfer_token() {
     let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_one(ali.clone(), URI::from("Casper Fan URI"));
+    contract.mint_one(ali.clone(), meta::apple());
     assert_eq!(contract.total_supply(), U256::from(1));
 
     let mut ali_balance = contract.balance_of(ali.clone());
@@ -417,8 +427,8 @@ fn test_transfer_token() {
 
     let ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
     let ali_first_token_id: TokenId = ali_tokens.get(0).unwrap().clone();
-    let ali_first_token_uri: URI = contract.token_uri(ali_first_token_id.clone()).unwrap();
-    assert_eq!(ali_first_token_uri, URI::from("Casper Fan URI"));
+    let ali_first_token_meta: Meta = contract.token_meta(ali_first_token_id.clone()).unwrap();
+    assert_eq!(ali_first_token_meta, meta::apple());
 
     let transfer_res =
         contract.transfer_token(ali.clone(), bob.clone(), ali_first_token_id.clone());
@@ -438,11 +448,8 @@ fn test_transfer_all_tokens() {
     let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_many(
-        ali.clone(),
-        vec![URI::from("Apple URI"), URI::from("Banana URI")],
-    );
-    contract.mint_one(ali.clone(), URI::from("Casper Fan URI"));
+    contract.mint_many(ali.clone(), vec![meta::apple(), meta::banana()]);
+    contract.mint_one(ali.clone(), meta::apple());
     assert_eq!(contract.total_supply(), U256::from(3));
 
     let mut ali_balance = contract.balance_of(ali.clone());
@@ -452,8 +459,8 @@ fn test_transfer_all_tokens() {
 
     let ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
     let ali_second_token_id: TokenId = ali_tokens.get(1).unwrap().clone();
-    let ali_second_token_uri: URI = contract.token_uri(ali_second_token_id.clone()).unwrap();
-    assert_eq!(ali_second_token_uri, URI::from("Banana URI"));
+    let ali_second_token_meta: Meta = contract.token_meta(ali_second_token_id.clone()).unwrap();
+    assert_eq!(ali_second_token_meta, meta::banana());
 
     let transfer_res = contract.transfer_all_tokens(ali.clone(), bob.clone());
     assert!(transfer_res.is_ok());
@@ -474,25 +481,20 @@ fn test_transfer_many_tokens() {
     let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_many(
-        ali.clone(),
-        vec![URI::from("Apple URI"), URI::from("Banana URI")],
-    );
-    contract.mint_copies(ali.clone(), URI::from("Casper Fan URI"), U256::from(3));
+    contract.mint_many(ali.clone(), vec![meta::apple(), meta::banana()]);
+    contract.mint_copies(ali.clone(), meta::apple(), U256::from(3));
     assert_eq!(contract.total_supply(), U256::from(5));
 
-    let mut ali_balance = contract.balance_of(ali.clone());
-    let mut bob_balance = contract.balance_of(bob.clone());
-    assert_eq!(ali_balance, U256::from(5));
-    assert_eq!(bob_balance, U256::from(0));
+    assert_eq!(contract.balance_of(ali.clone()), U256::from(5));
+    assert_eq!(contract.balance_of(bob.clone()), U256::from(0));
 
     let ali_tokens: Vec<TokenId> = contract.tokens(ali.clone());
     let ali_second_token_id: TokenId = ali_tokens.get(1).unwrap().clone();
-    let ali_second_token_uri: URI = contract.token_uri(ali_second_token_id.clone()).unwrap();
+    let ali_second_token_meta: Meta = contract.token_meta(ali_second_token_id.clone()).unwrap();
     let ali_third_token_id: TokenId = ali_tokens.get(2).unwrap().clone();
-    let ali_third_token_uri: URI = contract.token_uri(ali_third_token_id.clone()).unwrap();
-    assert_eq!(ali_second_token_uri, URI::from("Banana URI"));
-    assert_eq!(ali_third_token_uri, URI::from("Casper Fan URI"));
+    let ali_third_token_meta: Meta = contract.token_meta(ali_third_token_id.clone()).unwrap();
+    assert_eq!(ali_second_token_meta, meta::banana());
+    assert_eq!(ali_third_token_meta, meta::apple());
 
     let transfer_res = contract.transfer_many_tokens(
         ali.clone(),
@@ -500,11 +502,8 @@ fn test_transfer_many_tokens() {
         vec![ali_second_token_id.clone(), ali_third_token_id.clone()],
     );
     assert!(transfer_res.is_ok());
-
-    ali_balance = contract.balance_of(ali);
-    bob_balance = contract.balance_of(bob.clone());
-    assert_eq!(ali_balance, U256::from(3));
-    assert_eq!(bob_balance, U256::from(2));
+    assert_eq!(contract.balance_of(ali), U256::from(3));
+    assert_eq!(contract.balance_of(bob.clone()), U256::from(2));
 
     let owner_of_second_token_id = contract.owner_of(ali_second_token_id);
     let owner_of_third_token_id = contract.owner_of(ali_third_token_id);
@@ -518,7 +517,7 @@ fn test_attach_and_detach() {
     let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
     let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
-    contract.mint_one(ali.clone(), URI::from("0x12af"));
+    contract.mint_one(ali.clone(), meta::banana());
     let token_id: TokenId = contract.tokens(ali.clone())[0].clone();
 
     let token_uref: URef = contract.detach(ali.clone(), token_id.clone()).unwrap();
@@ -528,8 +527,8 @@ fn test_attach_and_detach() {
 
     assert_eq!(contract.token_id(token_uref.clone()), token_id.clone());
     assert_eq!(
-        contract.token_uri(token_id.clone()).unwrap(),
-        URI::from("0x12af")
+        contract.token_meta(token_id.clone()).unwrap(),
+        meta::banana()
     );
 
     contract.attach(token_uref, bob.clone());

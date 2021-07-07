@@ -1,13 +1,19 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+use std::collections::BTreeMap;
+
 use casper_types::{ApiError, AsymmetricType, PublicKey, URef, U256};
+
+#[cfg(test)]
+#[macro_use]
+extern crate maplit;
 
 #[cfg(test)]
 pub mod tests;
 
 pub type TokenId = String;
-pub type URI = String;
+pub type Meta = BTreeMap<String, String>;
 
 #[repr(u16)]
 pub enum Error {
@@ -35,8 +41,8 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         self.storage().symbol()
     }
 
-    fn uri(&self) -> URI {
-        self.storage().uri()
+    fn meta(&self) -> Meta {
+        self.storage().meta()
     }
 
     // Getters
@@ -52,8 +58,8 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         self.storage().total_supply()
     }
 
-    fn token_uri(&self, token_id: TokenId) -> Option<URI> {
-        self.storage().token_uri(token_id)
+    fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
+        self.storage().token_meta(token_id)
     }
 
     fn tokens(&self, owner: PublicKey) -> Vec<TokenId> {
@@ -74,17 +80,17 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
 
     // Minter function.
     // Guarded by the entrypoint group.
-    fn mint_one(&mut self, recipient: PublicKey, token_uri: URI) {
+    fn mint_one(&mut self, recipient: PublicKey, token_meta: Meta) {
         self.storage_mut()
-            .mint_copies(recipient, token_uri, U256::one());
+            .mint_copies(recipient, token_meta, U256::one());
     }
 
-    fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>) {
-        self.storage_mut().mint_many(recipient, token_uris);
+    fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>) {
+        self.storage_mut().mint_many(recipient, token_metas);
     }
 
-    fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256) {
-        self.storage_mut().mint_copies(recipient, token_uri, count);
+    fn mint_copies(&mut self, recipient: PublicKey, token_meta: Meta, count: U256) {
+        self.storage_mut().mint_copies(recipient, token_meta, count);
     }
 
     fn burn_one(&mut self, owner: PublicKey, token_id: TokenId) {
@@ -134,6 +140,8 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
             return Err(Error::PermissionDenied);
         }
         let mut sender_tokens = self.storage().get_tokens(sender.clone());
+        println!("Sender tokens: {:?}", sender_tokens);
+
         for token_id in token_ids.iter() {
             if !sender_tokens.contains(token_id) {
                 return Err(Error::PermissionDenied);
@@ -193,13 +201,13 @@ pub trait CEP47Storage {
     // Metadata.
     fn name(&self) -> String;
     fn symbol(&self) -> String;
-    fn uri(&self) -> URI;
+    fn meta(&self) -> Meta;
 
     // Getters
     fn balance_of(&self, owner: PublicKey) -> U256;
     fn onwer_of(&self, token_id: TokenId) -> Option<PublicKey>;
     fn total_supply(&self) -> U256;
-    fn token_uri(&self, token_id: TokenId) -> Option<URI>;
+    fn token_meta(&self, token_id: TokenId) -> Option<Meta>;
 
     // Controls
     fn is_paused(&self) -> bool;
@@ -209,8 +217,8 @@ pub trait CEP47Storage {
     // Setters
     fn get_tokens(&self, owner: PublicKey) -> Vec<TokenId>;
     fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>);
-    fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>);
-    fn mint_copies(&mut self, recipient: PublicKey, token_uri: URI, count: U256);
+    fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>);
+    fn mint_copies(&mut self, recipient: PublicKey, token_metas: Meta, count: U256);
     fn burn_one(&mut self, owner: PublicKey, token_id: TokenId);
     fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>);
 

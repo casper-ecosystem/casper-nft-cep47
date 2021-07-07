@@ -10,6 +10,7 @@ edition = "2018"
 casper-contract = "1.2.0"
 casper-types = "1.2.0"
 casper-engine-test-support = "1.2.0"
+maplit = "1.0.2"
 
 [features]
 default = ["casper-contract/std", "casper-types/std", "casper-contract/test-support"]

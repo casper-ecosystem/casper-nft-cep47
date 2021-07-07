@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
     account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, PublicKey, RuntimeArgs,
@@ -5,13 +7,21 @@ use casper_types::{
 };
 
 pub mod token_cfg {
-    pub const NAME: &str = "CasperNFT";
-    pub const SYMBOL: &str = "CNFT";
-    pub const URI: &str = "https://casper.network/network";
+    use super::Meta;
+    use maplit::btreemap;
+
+    pub const NAME: &str = "DragonsNFT";
+    pub const SYMBOL: &str = "DRAG";
+
+    pub fn contract_meta() -> Meta {
+        btreemap! {
+            "origin".to_string() => "fire".to_string()
+        }
+    }
 }
 
-pub const CONTRACT_KEY: &str = "CasperNFT_contract";
-pub const CONTRACT_HASH_KEY: &str = "CasperNFT_contract_hash";
+pub const CONTRACT_KEY: &str = "DragonsNFT_contract";
+pub const CONTRACT_HASH_KEY: &str = "DragonsNFT_contract_hash";
 
 pub struct Sender(pub AccountHash);
 pub struct CasperCEP47Contract {
@@ -23,7 +33,7 @@ pub struct CasperCEP47Contract {
 }
 
 pub type TokenId = String;
-pub type URI = String;
+pub type Meta = BTreeMap<String, String>;
 
 impl CasperCEP47Contract {
     pub fn deploy() -> Self {
@@ -39,7 +49,7 @@ impl CasperCEP47Contract {
         let session_args = runtime_args! {
             "token_name" => token_cfg::NAME,
             "token_symbol" => token_cfg::SYMBOL,
-            "token_uri" => token_cfg::URI
+            "token_meta" => token_cfg::contract_meta()
         };
         let session = SessionBuilder::new(session_code, session_args)
             .with_address(admin.to_account_hash())
@@ -94,8 +104,8 @@ impl CasperCEP47Contract {
         self.query_contract("symbol").unwrap()
     }
 
-    pub fn uri(&self) -> URI {
-        self.query_contract("uri").unwrap()
+    pub fn meta(&self) -> Meta {
+        self.query_contract("meta").unwrap()
     }
 
     pub fn total_supply(&self) -> U256 {
@@ -116,21 +126,21 @@ impl CasperCEP47Contract {
             .unwrap_or_default()
     }
 
-    pub fn token_uri(&self, token_id: TokenId) -> Option<URI> {
-        self.query_contract(uri_key(&token_id).as_str())
+    pub fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
+        self.query_contract(meta_key(&token_id).as_str())
     }
 
     pub fn token_uref(&self, token_id: &TokenId) -> Option<URef> {
         self.query_contract(test_uref_key(&token_id).as_str())
     }
 
-    pub fn mint_one(&mut self, recipient: PublicKey, token_uri: URI, sender: Sender) {
+    pub fn mint_one(&mut self, recipient: PublicKey, token_meta: Meta, sender: Sender) {
         self.call(
             sender,
             "mint_one",
             runtime_args! {
                 "recipient" => recipient,
-                "token_uri" => token_uri
+                "token_meta" => token_meta
             },
         );
     }
@@ -138,7 +148,7 @@ impl CasperCEP47Contract {
     pub fn mint_copies(
         &mut self,
         recipient: PublicKey,
-        token_uri: URI,
+        token_meta: Meta,
         count: U256,
         sender: Sender,
     ) {
@@ -147,19 +157,19 @@ impl CasperCEP47Contract {
             "mint_copies",
             runtime_args! {
                 "recipient" => recipient,
-                "token_uri" => token_uri,
+                "token_meta" => token_meta,
                 "count" => count
             },
         );
     }
 
-    pub fn mint_many(&mut self, recipient: PublicKey, token_uris: Vec<URI>, sender: Sender) {
+    pub fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>, sender: Sender) {
         self.call(
             sender,
             "mint_many",
             runtime_args! {
                 "recipient" => recipient,
-                "token_uris" => token_uris
+                "token_metas" => token_metas
             },
         );
     }
@@ -242,8 +252,8 @@ fn owner_key(token_id: &TokenId) -> String {
     format!("owners_{}", token_id)
 }
 
-fn uri_key(token_id: &TokenId) -> String {
-    format!("uris_{}", token_id)
+fn meta_key(token_id: &TokenId) -> String {
+    format!("metas_{}", token_id)
 }
 
 fn token_key(account: &AccountHash) -> String {

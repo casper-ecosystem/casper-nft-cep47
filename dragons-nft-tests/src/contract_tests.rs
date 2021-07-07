@@ -1,5 +1,34 @@
-use crate::cep47::{token_cfg, CasperCEP47Contract, Sender, TokenId, URI};
+use crate::cep47::{token_cfg, CasperCEP47Contract, Meta, Sender, TokenId};
 use casper_types::U256;
+
+mod meta {
+    use super::Meta;
+    use maplit::btreemap;
+
+    pub fn red_dragon() -> Meta {
+        btreemap! {
+            "color".to_string() => "red".to_string()
+        }
+    }
+
+    pub fn blue_dragon() -> Meta {
+        btreemap! {
+            "color".to_string() => "blue".to_string()
+        }
+    }
+
+    pub fn black_dragon() -> Meta {
+        btreemap! {
+            "color".to_string() => "black".to_string()
+        }
+    }
+
+    pub fn gold_dragon() -> Meta {
+        btreemap! {
+            "color".to_string() => "gold".to_string()
+        }
+    }
+}
 
 #[test]
 fn test_deploy() {
@@ -7,33 +36,33 @@ fn test_deploy() {
 
     assert_eq!(contract.name(), token_cfg::NAME);
     assert_eq!(contract.symbol(), token_cfg::SYMBOL);
-    assert_eq!(contract.uri(), token_cfg::URI);
+    assert_eq!(contract.meta(), token_cfg::contract_meta());
     assert_eq!(contract.total_supply(), U256::zero());
 }
 
 #[test]
-fn test_token_uri() {
+fn test_token_meta() {
     let mut contract = CasperCEP47Contract::deploy();
-    let token_uri = URI::from("MonaLisa");
+    let token_meta = meta::red_dragon();
     contract.mint_one(
         contract.ali.clone(),
-        token_uri.clone(),
+        token_meta.clone(),
         Sender(contract.admin.clone().to_account_hash()),
     );
 
     let ali_tokens: Vec<TokenId> = contract.tokens(contract.ali.clone());
-    let ali_token_uri = contract.token_uri(ali_tokens[0].clone());
+    let ali_token_meta = contract.token_meta(ali_tokens[0].clone());
 
-    assert_eq!(ali_token_uri, Some(token_uri));
+    assert_eq!(ali_token_meta, Some(token_meta));
 }
 
 #[test]
 fn test_mint_one() {
     let mut contract = CasperCEP47Contract::deploy();
-    let token_uri = URI::from("MonaLisa");
+    let token_meta = meta::red_dragon();
     contract.mint_one(
         contract.ali.clone(),
-        token_uri,
+        token_meta,
         Sender(contract.admin.clone().to_account_hash()),
     );
 
@@ -48,10 +77,10 @@ fn test_mint_one() {
 #[test]
 fn test_mint_copies() {
     let mut contract = CasperCEP47Contract::deploy();
-    let token_uri = URI::from("Casper Golden Card");
+    let token_meta = meta::gold_dragon();
     contract.mint_copies(
         contract.ali.clone(),
-        token_uri,
+        token_meta,
         U256::from(3),
         Sender(contract.admin.clone().to_account_hash()),
     );
@@ -75,10 +104,10 @@ fn test_mint_copies() {
 #[test]
 fn test_mint_many() {
     let mut contract = CasperCEP47Contract::deploy();
-    let token_uris: Vec<URI> = vec![URI::from("Casper Golden Card"), URI::from("Mona Lisa")];
+    let token_metas: Vec<Meta> = vec![meta::gold_dragon(), meta::red_dragon()];
     contract.mint_many(
         contract.ali.clone(),
-        token_uris,
+        token_metas,
         Sender(contract.admin.clone().to_account_hash()),
     );
 
@@ -97,15 +126,15 @@ fn test_mint_many() {
 #[test]
 fn test_burn_many() {
     let mut contract = CasperCEP47Contract::deploy();
-    let token_uris: Vec<URI> = vec![
-        URI::from("Casper Golden Card"),
-        URI::from("Casper Siver Card"),
-        URI::from("Casper Bronze Card"),
-        URI::from("Mona Lisa"),
+    let token_metas: Vec<Meta> = vec![
+        meta::gold_dragon(),
+        meta::blue_dragon(),
+        meta::black_dragon(),
+        meta::red_dragon(),
     ];
     contract.mint_many(
         contract.ali.clone(),
-        token_uris,
+        token_metas,
         Sender(contract.admin.clone().to_account_hash()),
     );
 
@@ -133,10 +162,10 @@ fn test_burn_many() {
 #[test]
 fn test_burn_one() {
     let mut contract = CasperCEP47Contract::deploy();
-    let token_uris: Vec<URI> = vec![URI::from("Casper Golden Card"), URI::from("Mona Lisa")];
+    let token_metas: Vec<Meta> = vec![meta::gold_dragon(), meta::red_dragon()];
     contract.mint_many(
         contract.ali.clone(),
-        token_uris,
+        token_metas,
         Sender(contract.admin.clone().to_account_hash()),
     );
 
@@ -161,13 +190,10 @@ fn test_burn_one() {
 #[test]
 fn test_transfer_token() {
     let mut contract = CasperCEP47Contract::deploy();
-    let token_uris: Vec<URI> = vec![
-        URI::from("Casper Golden Card"),
-        URI::from("Casper Silver Card"),
-    ];
+    let token_metas: Vec<Meta> = vec![meta::gold_dragon(), meta::blue_dragon()];
     contract.mint_many(
         contract.ali.clone(),
-        token_uris,
+        token_metas,
         Sender(contract.admin.clone().to_account_hash()),
     );
     let ali_tokens: Vec<TokenId> = contract.tokens(contract.ali.clone());
@@ -194,14 +220,14 @@ fn test_transfer_token() {
 #[test]
 fn test_transfer_many_tokens() {
     let mut contract = CasperCEP47Contract::deploy();
-    let token_uris: Vec<URI> = vec![
-        URI::from("Casper Golden Card"),
-        URI::from("Casper Silver Card"),
-        URI::from("Casper Bronze Card"),
+    let token_metas: Vec<Meta> = vec![
+        meta::gold_dragon(),
+        meta::black_dragon(),
+        meta::black_dragon(),
     ];
     contract.mint_many(
         contract.ali.clone(),
-        token_uris,
+        token_metas,
         Sender(contract.admin.clone().to_account_hash()),
     );
     let ali_tokens: Vec<TokenId> = contract.tokens(contract.ali.clone());
@@ -232,13 +258,10 @@ fn test_transfer_many_tokens() {
 #[test]
 fn test_transfer_all_tokens() {
     let mut contract = CasperCEP47Contract::deploy();
-    let token_uris: Vec<URI> = vec![
-        URI::from("Casper Golden Card"),
-        URI::from("Casper Silver Card"),
-    ];
+    let token_metas: Vec<Meta> = vec![meta::gold_dragon(), meta::blue_dragon()];
     contract.mint_many(
         contract.ali.clone(),
-        token_uris,
+        token_metas,
         Sender(contract.admin.clone().to_account_hash()),
     );
     let ali_tokens: Vec<TokenId> = contract.tokens(contract.ali.clone());

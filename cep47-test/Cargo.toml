@@ -1,5 +1,5 @@
 [package]
-name = "dragons-nft-tests"
+name = "cep47-test"
 version = "0.1.0"
 authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"
@@ -11,7 +11,6 @@ casper-contract = "1.2.0"
 casper-types = "1.2.0"
 casper-engine-test-support = "1.2.0"
 maplit = "1.0.2"
-cep47-test = { path = "../cep47-test" }
 
 [features]
 default = ["casper-contract/std", "casper-types/std", "casper-contract/test-support"]

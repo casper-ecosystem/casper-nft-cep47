@@ -5,6 +5,7 @@ build-contract:
 	cargo build --release -p dragons-nft --target wasm32-unknown-unknown
 
 test-only:
+	cargo test -p cep47-test
 	cargo test -p cep47-logic
 	cargo test -p dragons-nft-tests
 

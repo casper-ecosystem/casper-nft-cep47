@@ -1,0 +1,19 @@
+[package]
+name = "bag-hodler"
+version = "0.0.1"
+authors = ["Alexander Limonov <alimonov@casperlabs.io>"]
+edition = "2018"
+
+[dependencies]
+casper-contract = { git = "https://github.com/casper-network/casper-node", package = "casper-contract", rev = "77bd1af9ed21a52b8ec6d2804195d5413c9f3ea1"} #{ path = "../../casper-node/smart_contracts/contract"}
+casper-types = { git = "https://github.com/casper-network/casper-node", package = "casper-types", rev = "77bd1af9ed21a52b8ec6d2804195d5413c9f3ea1"}#{ path = "../../casper-node/types"}
+
+[[bin]]
+name = "bag_hodler"
+path = "src/main.rs"
+bench = false
+doctest = false
+test = false
+
+[features]
+default = ["casper-contract/std", "casper-types/std"]

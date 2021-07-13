@@ -5,7 +5,8 @@ members = [
     "cep47-logic",
     "cep47-test",
     "dragons-nft",
-	"dragons-nft-tests"
+	"dragons-nft-tests",
+    "bag-hodler"
 ]
 
 [profile.release]

@@ -17,10 +17,10 @@ use casper_types::{
     bytesrepr::{FromBytes, ToBytes},
     contracts::NamedKeys,
     AccessRights, ApiError, AsymmetricType, CLType, CLTyped, CLValue, ContractPackageHash,
-    EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, Key, Parameter, PublicKey, URef,
+    EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, Parameter, Key, URef,
     U256,
 };
-pub use cep47_logic::Meta;
+pub use cep47_logic::{Meta, PossiblyAddressable};
 use cep47_logic::{CEP47Contract, CEP47Storage, TokenId, WithStorage};
 
 use core::convert::TryInto;
@@ -28,6 +28,7 @@ use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
 };
+use casper_types::system::CallStackElement;
 
 pub struct CasperCEP47Storage {}
 impl CasperCEP47Storage {
@@ -48,16 +49,16 @@ impl CEP47Storage for CasperCEP47Storage {
     }
 
     // Getters
-    fn balance_of(&self, owner: PublicKey) -> U256 {
-        let owner_balance = get_key::<U256>(&balance_key(&owner.to_account_hash()));
+    fn balance_of(&self, owner: Key) -> U256 {
+        let owner_balance = get_key::<U256>(&balance_key(&owner));
         if owner_balance.is_none() {
             U256::from(0)
         } else {
             owner_balance.unwrap()
         }
     }
-    fn onwer_of(&self, token_id: TokenId) -> Option<PublicKey> {
-        get_key::<PublicKey>(&owner_key(&token_id))
+    fn onwer_of(&self, token_id: TokenId) -> Option<Key> {
+        get_key::<Key>(&owner_key(&token_id))
     }
     fn total_supply(&self) -> U256 {
         get_key::<U256>("total_supply").unwrap()
@@ -76,15 +77,15 @@ impl CEP47Storage for CasperCEP47Storage {
     }
 
     // Setters
-    fn get_tokens(&self, owner: PublicKey) -> Vec<TokenId> {
-        let owner_tokens = get_key::<Vec<TokenId>>(&token_key(&owner.to_account_hash()));
+    fn get_tokens(&self, owner: Key) -> Vec<TokenId> {
+        let owner_tokens = get_key::<Vec<TokenId>>(&token_key(&owner));
         if owner_tokens.is_none() {
             Vec::<TokenId>::new()
         } else {
             owner_tokens.unwrap()
         }
     }
-    fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
+    fn set_tokens(&mut self, owner: Key, token_ids: Vec<TokenId>) {
         let owner_prev_balance = self.balance_of(owner.clone());
         let owner_new_balance = U256::from(token_ids.len() as u64);
         let prev_total_supply = self.total_supply();
@@ -96,14 +97,14 @@ impl CEP47Storage for CasperCEP47Storage {
         for token_id in token_ids.clone() {
             set_key(&owner_key(&token_id), owner.clone());
         }
-        set_key(&token_key(&owner.to_account_hash()), token_ids);
-        set_key(&balance_key(&owner.to_account_hash()), owner_new_balance);
+        set_key(&token_key(&owner), token_ids);
+        set_key(&balance_key(&owner), owner_new_balance);
         set_key(
             "total_supply",
             prev_total_supply - owner_prev_balance + owner_new_balance,
         );
     }
-    fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>) {
+    fn mint_many(&mut self, recipient: Key, token_metas: Vec<Meta>) {
         let mut recipient_tokens = self.get_tokens(recipient.clone());
         let mut recipient_balance = self.balance_of(recipient.clone());
         let mut total_supply = self.total_supply();
@@ -122,17 +123,17 @@ impl CEP47Storage for CasperCEP47Storage {
         }
         recipient_balance = recipient_balance + U256::from(token_metas.len() as u64);
         set_key(
-            &balance_key(&recipient.to_account_hash()),
+            &balance_key(&recipient),
             recipient_balance,
         );
-        set_key(&token_key(&recipient.to_account_hash()), recipient_tokens);
+        set_key(&token_key(&recipient), recipient_tokens);
         set_key("total_supply", total_supply);
     }
-    fn mint_copies(&mut self, recipient: PublicKey, token_meta: Meta, count: U256) {
+    fn mint_copies(&mut self, recipient: Key, token_meta: Meta, count: U256) {
         let token_metas: Vec<Meta> = vec![token_meta; count.as_usize()];
         self.mint_many(recipient, token_metas);
     }
-    fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
+    fn burn_many(&mut self, owner: Key, token_ids: Vec<TokenId>) {
         let mut owner_tokens = self.get_tokens(owner.clone());
         let mut owner_balance = self.balance_of(owner.clone());
         let mut total_supply = self.total_supply();
@@ -148,11 +149,11 @@ impl CEP47Storage for CasperCEP47Storage {
             owner_balance = owner_balance - 1;
             total_supply = total_supply - 1;
         }
-        set_key(&balance_key(&owner.to_account_hash()), owner_balance);
-        set_key(&token_key(&owner.to_account_hash()), owner_tokens);
+        set_key(&balance_key(&owner), owner_balance);
+        set_key(&token_key(&owner), owner_tokens);
         set_key("total_supply", total_supply);
     }
-    fn burn_one(&mut self, owner: PublicKey, token_id: TokenId) {
+    fn burn_one(&mut self, owner: Key, token_id: TokenId) {
         let mut owner_tokens = self.get_tokens(owner.clone());
         let owner_balance = self.balance_of(owner.clone());
         let total_supply = self.total_supply();
@@ -163,8 +164,8 @@ impl CEP47Storage for CasperCEP47Storage {
         owner_tokens.remove(index);
         remove_key(&meta_key(&token_id));
         remove_key(&owner_key(&token_id));
-        set_key(&balance_key(&owner.to_account_hash()), owner_balance - 1);
-        set_key(&token_key(&owner.to_account_hash()), owner_tokens);
+        set_key(&balance_key(&owner), owner_balance - 1);
+        set_key(&token_key(&owner), owner_tokens);
         set_key("total_supply", total_supply - 1);
     }
     fn new_uref(&mut self, token_id: TokenId) -> Option<URef> {
@@ -248,7 +249,7 @@ pub extern "C" fn meta() {
 #[cfg(not(feature = "no_balance_of"))]
 #[no_mangle]
 pub extern "C" fn balance_of() {
-    let account: PublicKey = runtime::get_named_arg("account");
+    let account: Key = runtime::get_named_arg("account");
     let contract = CasperCEP47Contract::new();
     ret(contract.balance_of(account))
 }
@@ -279,7 +280,7 @@ pub extern "C" fn token_meta() {
 #[cfg(not(feature = "no_tokens"))]
 #[no_mangle]
 pub extern "C" fn tokens() {
-    let owner: PublicKey = runtime::get_named_arg("owner");
+    let owner: Key = runtime::get_named_arg("owner");
     let contract = CasperCEP47Contract::new();
     ret(contract.tokens(owner))
 }
@@ -308,7 +309,7 @@ pub extern "C" fn unpause() {
 #[cfg(not(feature = "no_mint_one"))]
 #[no_mangle]
 pub extern "C" fn mint_one() {
-    let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let recipient: Key = runtime::get_named_arg("recipient");
     let token_meta: Meta = runtime::get_named_arg("token_meta");
     let mut contract = CasperCEP47Contract::new();
     contract.mint_one(recipient, token_meta);
@@ -317,7 +318,7 @@ pub extern "C" fn mint_one() {
 #[cfg(not(feature = "no_mint_many"))]
 #[no_mangle]
 pub extern "C" fn mint_many() {
-    let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let recipient: Key = runtime::get_named_arg("recipient");
     let token_metas: Vec<Meta> = runtime::get_named_arg("token_metas");
     let mut contract = CasperCEP47Contract::new();
     contract.mint_many(recipient, token_metas);
@@ -326,7 +327,7 @@ pub extern "C" fn mint_many() {
 #[cfg(not(feature = "no_mint_copies"))]
 #[no_mangle]
 pub extern "C" fn mint_copies() {
-    let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let recipient: Key = runtime::get_named_arg("recipient");
     let token_meta: Meta = runtime::get_named_arg("token_meta");
     let count: U256 = runtime::get_named_arg("count");
     let mut contract = CasperCEP47Contract::new();
@@ -336,7 +337,7 @@ pub extern "C" fn mint_copies() {
 #[cfg(not(feature = "no_burn_many"))]
 #[no_mangle]
 pub extern "C" fn burn_many() {
-    let owner: PublicKey = runtime::get_named_arg("owner");
+    let owner: Key = runtime::get_named_arg("owner");
     let token_ids: Vec<TokenId> = runtime::get_named_arg("token_ids");
     let mut contract = CasperCEP47Contract::new();
     contract.burn_many(owner, token_ids);
@@ -345,7 +346,7 @@ pub extern "C" fn burn_many() {
 #[cfg(not(feature = "no_burn_one"))]
 #[no_mangle]
 pub extern "C" fn burn_one() {
-    let owner: PublicKey = runtime::get_named_arg("owner");
+    let owner: Key = runtime::get_named_arg("owner");
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let mut contract = CasperCEP47Contract::new();
     contract.burn_one(owner, token_id);
@@ -354,12 +355,14 @@ pub extern "C" fn burn_one() {
 #[cfg(not(feature = "no_transfer_token"))]
 #[no_mangle]
 pub extern "C" fn transfer_token() {
-    let caller: AccountHash = runtime::get_caller();
-    let sender: PublicKey = runtime::get_named_arg("sender");
-    if sender.to_account_hash() != caller {
+    let mut call_stack = runtime::get_call_stack();
+    call_stack.pop();
+    let caller: CallStackElement = call_stack.last().unwrap_or_revert().clone();
+    let sender: Key = runtime::get_named_arg("sender");
+    if !sender.matches_caller(&caller) {
         runtime::revert(ApiError::PermissionDenied);
     }
-    let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let recipient: Key = runtime::get_named_arg("recipient");
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let mut contract = CasperCEP47Contract::new();
     let res = contract.transfer_token(sender, recipient, token_id);
@@ -369,12 +372,14 @@ pub extern "C" fn transfer_token() {
 #[cfg(not(feature = "no_transfer_many_tokens"))]
 #[no_mangle]
 pub extern "C" fn transfer_many_tokens() {
-    let caller: AccountHash = runtime::get_caller();
-    let sender: PublicKey = runtime::get_named_arg("sender");
-    if sender.to_account_hash() != caller {
+    let mut call_stack = runtime::get_call_stack();
+    call_stack.pop();
+    let caller: CallStackElement = call_stack.last().unwrap_or_revert().clone();
+    let sender: Key = runtime::get_named_arg("sender");
+    if !sender.matches_caller(&caller) {
         runtime::revert(ApiError::PermissionDenied);
     }
-    let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let recipient: Key = runtime::get_named_arg("recipient");
     let token_ids: Vec<TokenId> = runtime::get_named_arg("token_ids");
     let mut contract = CasperCEP47Contract::new();
     let res = contract.transfer_many_tokens(sender, recipient, token_ids);
@@ -384,12 +389,14 @@ pub extern "C" fn transfer_many_tokens() {
 #[cfg(not(feature = "no_transfer_all_tokens"))]
 #[no_mangle]
 pub extern "C" fn transfer_all_tokens() {
-    let caller: AccountHash = runtime::get_caller();
-    let sender: PublicKey = runtime::get_named_arg("sender");
-    if sender.to_account_hash() != caller {
+    let mut call_stack = runtime::get_call_stack();
+    call_stack.pop();
+    let caller: CallStackElement = call_stack.last().unwrap_or_revert().clone();
+    let sender: Key = runtime::get_named_arg("sender");
+    if !sender.matches_caller(&caller) {
         runtime::revert(ApiError::PermissionDenied);
     }
-    let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let recipient: Key = runtime::get_named_arg("recipient");
     let mut contract = CasperCEP47Contract::new();
     let res = contract.transfer_all_tokens(sender, recipient);
     res.unwrap_or_revert();
@@ -399,7 +406,7 @@ pub extern "C" fn transfer_all_tokens() {
 #[no_mangle]
 pub extern "C" fn attach() {
     let token_uref: URef = runtime::get_named_arg("token_uref");
-    let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let recipient: Key = runtime::get_named_arg("recipient");
     let mut contract = CasperCEP47Contract::new();
     contract.attach(token_uref, recipient);
 }
@@ -407,7 +414,7 @@ pub extern "C" fn attach() {
 #[cfg(not(feature = "no_detach"))]
 #[no_mangle]
 pub extern "C" fn detach() {
-    let owner: PublicKey = runtime::get_named_arg("owner");
+    let owner: Key = runtime::get_named_arg("owner");
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let mut contract = CasperCEP47Contract::new();
     let res = contract.detach(owner, token_id.clone()); // For test purpose
@@ -457,14 +464,14 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     ));
     entry_points.add_entry_point(endpoint(
         "balance_of",
-        vec![Parameter::new("account", CLType::PublicKey)],
+        vec![Parameter::new("account", CLType::Key)],
         CLType::U256,
         None,
     ));
     entry_points.add_entry_point(endpoint(
         "owner_of",
         vec![Parameter::new("token_id", CLType::String)],
-        CLType::Option(Box::new(CLType::PublicKey)),
+        CLType::Option(Box::new(CLType::Key)),
         None,
     ));
     entry_points.add_entry_point(endpoint(
@@ -475,20 +482,20 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     ));
     entry_points.add_entry_point(endpoint(
         "tokens",
-        vec![Parameter::new("owner", CLType::PublicKey)],
+        vec![Parameter::new("owner", CLType::Key)],
         CLType::List(Box::new(CLType::String)),
         None,
     ));
     entry_points.add_entry_point(endpoint(
         "total_supply",
-        vec![Parameter::new("owner", CLType::PublicKey)],
+        vec![Parameter::new("owner", CLType::Key)],
         CLType::List(Box::new(CLType::String)),
         None,
     ));
     entry_points.add_entry_point(endpoint(
         "mint_one",
         vec![
-            Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("recipient", CLType::Key),
             Parameter::new("token_meta", CLType::String),
         ],
         CLType::Unit,
@@ -501,7 +508,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint(
         "mint_many",
         vec![
-            Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("recipient", CLType::Key),
             Parameter::new("token_metas", CLType::List(Box::new(CLType::String))),
         ],
         CLType::Unit,
@@ -514,7 +521,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint(
         "burn_many",
         vec![
-            Parameter::new("owner", CLType::PublicKey),
+            Parameter::new("owner", CLType::Key),
             Parameter::new("token_ids", CLType::List(Box::new(CLType::String))),
         ],
         CLType::Unit,
@@ -527,7 +534,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint(
         "burn_one",
         vec![
-            Parameter::new("owner", CLType::PublicKey),
+            Parameter::new("owner", CLType::Key),
             Parameter::new("token_id", CLType::List(Box::new(CLType::String))),
         ],
         CLType::Unit,
@@ -540,7 +547,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint(
         "mint_copies",
         vec![
-            Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("recipient", CLType::Key),
             Parameter::new("token_meta", CLType::String),
             Parameter::new("count", CLType::U256),
         ],
@@ -554,8 +561,8 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint(
         "transfer_token",
         vec![
-            Parameter::new("sender", CLType::PublicKey),
-            Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("sender", CLType::Key),
+            Parameter::new("recipient", CLType::Key),
             Parameter::new("token_id", CLType::String),
         ],
         CLType::Unit,
@@ -564,8 +571,8 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint(
         "transfer_many_tokens",
         vec![
-            Parameter::new("sender", CLType::PublicKey),
-            Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("sender", CLType::Key),
+            Parameter::new("recipient", CLType::Key),
             Parameter::new("token_ids", CLType::List(Box::new(CLType::String))),
         ],
         CLType::Unit,
@@ -574,8 +581,8 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint(
         "transfer_all_tokens",
         vec![
-            Parameter::new("sender", CLType::PublicKey),
-            Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("sender", CLType::Key),
+            Parameter::new("recipient", CLType::Key),
         ],
         CLType::Unit,
         None,
@@ -584,7 +591,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "attach",
         vec![
             Parameter::new("token_uref", CLType::URef),
-            Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("recipient", CLType::Key),
         ],
         CLType::Unit,
         None,
@@ -592,7 +599,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint(
         "detach",
         vec![
-            Parameter::new("owner", CLType::PublicKey),
+            Parameter::new("owner", CLType::Key),
             Parameter::new("token_id", CLType::String),
         ],
         CLType::Unit,
@@ -668,7 +675,7 @@ fn remove_key(name: &str) {
     }
 }
 
-fn balance_key(account: &AccountHash) -> String {
+fn balance_key(account: &Key) -> String {
     format!("balances_{}", account)
 }
 
@@ -688,7 +695,7 @@ fn test_uref_key(token_id: &TokenId) -> String {
     format!("turef_{}", token_id)
 }
 
-fn token_key(account: &AccountHash) -> String {
+fn token_key(account: &Key) -> String {
     format!("tokens_{}", account)
 }
 

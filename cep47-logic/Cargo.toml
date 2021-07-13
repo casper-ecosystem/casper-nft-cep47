@@ -5,7 +5,7 @@ authors = ["Maciej Zielinski <maciek.s.zielinski@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-casper-types = { git = "https://github.com/casper-network/casper-node/types", rev = "77bd1af9ed21a52b8ec6d2804195d5413c9f3ea1"}#{ path = "../../casper-node/types"}
+casper-types = { git = "https://github.com/casper-network/casper-node", rev = "77bd1af9ed21a52b8ec6d2804195d5413c9f3ea1"}#{ path = "../../casper-node/types"}
 
 [dev-dependencies]
 rand = "0.7.3"

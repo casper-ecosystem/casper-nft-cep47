@@ -1,0 +1,30 @@
+name: ci-casper-rust-contract
+
+on:
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - '**.md'
+
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  build:
+
+    runs-on: ubuntu-18.04
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        components: rustfmt, clippy
+    # Needed for gcc install
+    - run: sudo apt update && sudo apt install -y build-essential
+    - run: make prepare
+    - run: make check-lint
+    # Tests will be added after NCTL interaction is possible.
+    - run: make test

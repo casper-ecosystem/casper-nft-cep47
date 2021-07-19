@@ -1,0 +1,37 @@
+[package]
+name = "cep47"
+version = "0.1.0"
+authors = ["astro019 <dmitry.yakov7@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+casper-contract = "1.2.0"
+casper-types = "1.2.0"
+cep47-logic = { path = "../cep47-logic" }
+
+[lib]
+name = "cep47"
+
+[features]
+default = ["casper-contract/std", "casper-types/std"]
+no_name = []
+no_symbol = []
+no_meta = []
+no_balance_of = []
+no_owner_of = []
+no_total_supply = []
+no_token_uri = []
+no_tokens = []
+no_is_paused = []
+no_pause = []
+no_unpause = []
+no_mint_one = []
+no_mint_many = []
+no_mint_copies = []
+no_burn_many = []
+no_burn_one = []
+no_transfer_token = []
+no_transfer_many_tokens = []
+no_transfer_all_tokens = []
+no_attach = []
+no_detach = []

@@ -1,0 +1,12 @@
+[package]
+name = "cep47-logic"
+version = "0.1.0"
+authors = ["Maciej Zielinski <maciek.s.zielinski@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+casper-types = "1.2.0"
+
+[dev-dependencies]
+rand = "0.7.3"
+maplit = "1.0.2"

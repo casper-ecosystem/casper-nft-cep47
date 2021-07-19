@@ -1,1 +1,1 @@
-# casper-nft-cep46
+# casper-nft-cep47

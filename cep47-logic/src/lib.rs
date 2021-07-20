@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use casper_types::{ApiError, AsymmetricType, Key, URef, U256};
+use casper_types::{ApiError, AsymmetricType, Key, URef, U256, PublicKey};
 use casper_types::system::CallStackElement;
 
 #[cfg(test)]

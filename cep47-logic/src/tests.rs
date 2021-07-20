@@ -2,7 +2,7 @@ use casper_types::AccessRights;
 use rand::Rng;
 
 use crate::{
-    AsymmetricType, CEP47Contract, CEP47Storage, Meta, PublicKey, TokenId, URef, WithStorage, U256,
+    AsymmetricType, CEP47Contract, CEP47Storage, Meta, PublicKey, TokenId, URef, WithStorage, U256, Key
 };
 use std::{
     collections::{hash_map::DefaultHasher, BTreeMap},
@@ -16,10 +16,10 @@ struct TestStorage {
     meta: Meta,
     paused: bool,
     total_supply: U256,
-    tokens: BTreeMap<PublicKey, Vec<TokenId>>,
+    tokens: BTreeMap<Key, Vec<TokenId>>,
     token_metas: BTreeMap<TokenId, Meta>,
-    balances: BTreeMap<PublicKey, U256>,
-    belongs_to: BTreeMap<TokenId, PublicKey>,
+    balances: BTreeMap<Key, U256>,
+    belongs_to: BTreeMap<TokenId, Key>,
     urefs: BTreeMap<URef, TokenId>,
 }
 
@@ -53,7 +53,7 @@ impl CEP47Storage for TestStorage {
         self.meta.clone()
     }
 
-    fn balance_of(&self, owner: PublicKey) -> U256 {
+    fn balance_of(&self, owner: Key) -> U256 {
         let owner_balance = self.balances.get(&owner);
         if owner_balance.is_none() {
             U256::from(0)
@@ -62,7 +62,7 @@ impl CEP47Storage for TestStorage {
         }
     }
 
-    fn onwer_of(&self, token_id: TokenId) -> Option<PublicKey> {
+    fn onwer_of(&self, token_id: TokenId) -> Option<Key> {
         let owner = self.belongs_to.get(&token_id);
         if owner.is_some() {
             Some(owner.unwrap().clone())
@@ -96,7 +96,7 @@ impl CEP47Storage for TestStorage {
         self.paused = false;
     }
 
-    fn get_tokens(&self, owner: PublicKey) -> Vec<TokenId> {
+    fn get_tokens(&self, owner: Key) -> Vec<TokenId> {
         let owner_tokens = self.tokens.get(&owner);
         if owner_tokens.is_none() {
             Vec::<TokenId>::new()
@@ -105,7 +105,7 @@ impl CEP47Storage for TestStorage {
         }
     }
 
-    fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
+    fn set_tokens(&mut self, owner: Key, token_ids: Vec<TokenId>) {
         let owner_new_balance = U256::from(token_ids.len() as u64);
 
         let owner_tokens = self.get_tokens(owner.clone());
@@ -120,7 +120,7 @@ impl CEP47Storage for TestStorage {
         self.balances.insert(owner, owner_new_balance);
     }
 
-    fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>) {
+    fn mint_many(&mut self, recipient: Key, token_metas: Vec<Meta>) {
         let recipient_balance = self.balances.get(&recipient);
         let recipient_tokens = self.tokens.get(&recipient);
         let mut recipient_new_balance = if recipient_balance.is_none() {
@@ -151,12 +151,12 @@ impl CEP47Storage for TestStorage {
         self.tokens.insert(recipient, recipient_new_tokens);
     }
 
-    fn mint_copies(&mut self, recipient: PublicKey, token_meta: Meta, count: U256) {
+    fn mint_copies(&mut self, recipient: Key, token_meta: Meta, count: U256) {
         let token_metas: Vec<Meta> = vec![token_meta; count.as_usize()];
         self.mint_many(recipient, token_metas);
     }
 
-    fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
+    fn burn_many(&mut self, owner: Key, token_ids: Vec<TokenId>) {
         let owner_tokens = self.tokens.get(&owner);
         let owner_balance = self.balances.get(&owner);
         let mut owner_new_balance = if owner_balance.is_none() {
@@ -185,7 +185,7 @@ impl CEP47Storage for TestStorage {
         self.tokens.insert(owner, owner_new_tokens);
     }
 
-    fn burn_one(&mut self, owner: PublicKey, token_id: TokenId) {
+    fn burn_one(&mut self, owner: Key, token_id: TokenId) {
         let owner_tokens = self.tokens.get(&owner);
         let owner_balance = self.balances.get(&owner);
         let owner_new_balance = if owner_balance.is_none() {
@@ -307,9 +307,10 @@ fn test_metadata() {
 #[test]
 fn test_mint_many() {
     let mut contract = TestContract::new();
-    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
-    let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
-
+    let ali_pk = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let bob_pk = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
+    let ali = Key::Account(ali_pk.to_account_hash());
+    let bob = Key::Account(bob_pk.to_account_hash());
     assert_eq!(contract.total_supply(), U256::from(0));
     contract.mint_many(ali.clone(), vec![meta::apple()]);
     contract.mint_many(bob.clone(), vec![meta::banana(), meta::orange()]);
@@ -335,8 +336,8 @@ fn test_mint_many() {
 #[test]
 fn test_mint_copies() {
     let mut contract = TestContract::new();
-    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
-
+    let ali_pk = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let ali = Key::Account(ali_pk.to_account_hash());
     assert_eq!(contract.total_supply(), U256::from(0));
     contract.mint_copies(ali.clone(), meta::apple(), U256::from(7));
     assert_eq!(contract.total_supply(), U256::from(7));
@@ -357,7 +358,9 @@ fn test_mint_copies() {
 #[test]
 fn test_burn_many() {
     let mut contract = TestContract::new();
-    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let ali_pk = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let ali = Key::Account(ali_pk.to_account_hash());
+
     assert_eq!(contract.total_supply(), U256::from(0));
 
     contract.mint_many(
@@ -388,7 +391,8 @@ fn test_burn_many() {
 #[test]
 fn test_burn_one() {
     let mut contract = TestContract::new();
-    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let ali_pk = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let ali = Key::Account(ali_pk.to_account_hash());
 
     assert_eq!(contract.total_supply(), U256::from(0));
     contract.mint_many(ali.clone(), vec![meta::banana(), meta::orange()]);
@@ -413,8 +417,10 @@ fn test_burn_one() {
 #[test]
 fn test_transfer_token() {
     let mut contract = TestContract::new();
-    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
-    let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
+    let ali_pk = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let bob_pk = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
+    let ali = Key::Account(ali_pk.to_account_hash());
+    let bob = Key::Account(bob_pk.to_account_hash());
 
     assert_eq!(contract.total_supply(), U256::from(0));
     contract.mint_one(ali.clone(), meta::apple());
@@ -444,8 +450,10 @@ fn test_transfer_token() {
 #[test]
 fn test_transfer_all_tokens() {
     let mut contract = TestContract::new();
-    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
-    let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
+    let ali_pk = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let bob_pk = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
+    let ali = Key::Account(ali_pk.to_account_hash());
+    let bob = Key::Account(bob_pk.to_account_hash());
 
     assert_eq!(contract.total_supply(), U256::from(0));
     contract.mint_many(ali.clone(), vec![meta::apple(), meta::banana()]);
@@ -477,8 +485,10 @@ fn test_transfer_all_tokens() {
 #[test]
 fn test_transfer_many_tokens() {
     let mut contract = TestContract::new();
-    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
-    let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
+    let ali_pk = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let bob_pk = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
+    let ali = Key::Account(ali_pk.to_account_hash());
+    let bob = Key::Account(bob_pk.to_account_hash());
 
     assert_eq!(contract.total_supply(), U256::from(0));
     contract.mint_many(ali.clone(), vec![meta::apple(), meta::banana()]);
@@ -514,8 +524,10 @@ fn test_transfer_many_tokens() {
 #[test]
 fn test_attach_and_detach() {
     let mut contract = TestContract::new();
-    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
-    let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
+    let ali_pk = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let bob_pk = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
+    let ali = Key::Account(ali_pk.to_account_hash());
+    let bob = Key::Account(bob_pk.to_account_hash());
 
     contract.mint_one(ali.clone(), meta::banana());
     let token_id: TokenId = contract.tokens(ali.clone())[0].clone();

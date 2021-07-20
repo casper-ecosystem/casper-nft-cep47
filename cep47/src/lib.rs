@@ -12,14 +12,7 @@ use casper_contract::{
     contract_api::{runtime, storage},
     unwrap_or_revert::UnwrapOrRevert,
 };
-use casper_types::{
-    account::AccountHash,
-    bytesrepr::{FromBytes, ToBytes},
-    contracts::NamedKeys,
-    AccessRights, ApiError, AsymmetricType, CLType, CLTyped, CLValue, ContractPackageHash,
-    EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, Key, Parameter, PublicKey, URef,
-    U256,
-};
+use casper_types::{AccessRights, ApiError, AsymmetricType, CLType, CLTyped, CLValue, ContractPackageHash, EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, HashAddr, Key, Parameter, PublicKey, U256, URef, account::AccountHash, bytesrepr::{FromBytes, ToBytes}, contracts::NamedKeys};
 pub use cep47_logic::Meta;
 use cep47_logic::{CEP47Contract, CEP47Storage, TokenId, WithStorage};
 
@@ -110,6 +103,7 @@ impl CEP47Storage for CasperCEP47Storage {
         let meta = self.meta();
 
         let mut hasher = DefaultHasher::new();
+
         for token_meta in token_metas.clone() {
             let token_info = (meta.clone(), token_meta.clone());
             Hash::hash(&token_info, &mut hasher);
@@ -119,6 +113,8 @@ impl CEP47Storage for CasperCEP47Storage {
             total_supply = total_supply + 1;
             set_key(&meta_key(&token_id), token_meta);
             set_key(&owner_key(&token_id), recipient.clone());
+
+            emit_mint_one_event(&recipient, &token_id);
         }
         recipient_balance = recipient_balance + U256::from(token_metas.len() as u64);
         set_key(
@@ -127,6 +123,7 @@ impl CEP47Storage for CasperCEP47Storage {
         );
         set_key(&token_key(&recipient.to_account_hash()), recipient_tokens);
         set_key("total_supply", total_supply);
+
     }
     fn mint_copies(&mut self, recipient: PublicKey, token_meta: Meta, count: U256) {
         let token_metas: Vec<Meta> = vec![token_meta; count.as_usize()];
@@ -361,6 +358,8 @@ pub extern "C" fn transfer_token() {
     }
     let recipient: PublicKey = runtime::get_named_arg("recipient");
     let token_id: TokenId = runtime::get_named_arg("token_id");
+    emit_transfer_token_event(&sender, &recipient, &token_id);
+
     let mut contract = CasperCEP47Contract::new();
     let res = contract.transfer_token(sender, recipient, token_id);
     res.unwrap_or_revert();
@@ -621,6 +620,7 @@ pub fn deploy(
         storage::new_uref(U256::zero()).into(),
     );
     named_keys.insert("paused".to_string(), storage::new_uref(paused).into());
+    named_keys.insert("contract_package_hash".to_string(), storage::new_uref(contract_package_hash).into());
 
     let (contract_hash, _) =
         storage::add_contract_version(contract_package_hash, entry_points, named_keys);
@@ -712,4 +712,33 @@ pub fn endpoint(
 
 pub fn ret<T: CLTyped + ToBytes>(value: T) {
     runtime::ret(CLValue::from_t(value).unwrap_or_revert())
+}
+
+pub fn emit_mint_one_event(recipient: &PublicKey, token_id: &TokenId) {
+    let mut event = BTreeMap::new();
+    event.insert("contract_package_hash", package_hash().to_string());
+    event.insert("event_type", "cep47_mint_one".to_string());
+    event.insert("recipient", recipient.to_string());
+    event.insert("token_id", token_id.to_string());
+    emit_event(event);
+}
+
+pub fn emit_transfer_token_event(sender: &PublicKey, recipient: &PublicKey, token_id: &TokenId) {
+    let mut event = BTreeMap::new();
+    event.insert("contract_package_hash", package_hash().to_string());
+    event.insert("event_type", "cep47_trasnfer_token".to_string());
+    event.insert("sender", sender.to_string());
+    event.insert("recipient", recipient.to_string());
+    event.insert("token_id", token_id.to_string());
+    emit_event(event);
+}
+
+pub fn emit_event(event: BTreeMap<&str, String>) {
+    let _: URef = storage::new_uref(event);
+}
+
+pub fn package_hash() -> ContractPackageHash {
+    let key: [u8; 32] = get_key("contract_package_hash")
+        .unwrap_or_revert_with(ApiError::User(1));
+    key.into()
 }

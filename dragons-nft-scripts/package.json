@@ -1,0 +1,22 @@
+{
+  "name": "dragons-nft-scripts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "install_contract": "node src/index.js install_contract",
+    "mint_one": "node src/index.js mint_one",
+    "mint_copies": "node src/index.js mint_copies",
+    "name": "node src/index.js name",
+    "total_supply": "node src/index.js total_supply",
+    "print_account": "node src/index.js print_account",
+    "balance_of": "node src/index.js balance_of",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "casper-js-sdk": "2.1.0",
+    "casper-cep47-js-client": "0.1.1"
+  }
+}

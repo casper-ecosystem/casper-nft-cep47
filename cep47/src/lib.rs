@@ -12,7 +12,14 @@ use casper_contract::{
     contract_api::{runtime, storage},
     unwrap_or_revert::UnwrapOrRevert,
 };
-use casper_types::{AccessRights, ApiError, AsymmetricType, CLType, CLTyped, CLValue, ContractPackageHash, EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, HashAddr, Key, Parameter, PublicKey, U256, URef, account::AccountHash, bytesrepr::{FromBytes, ToBytes}, contracts::NamedKeys};
+use casper_types::{
+    account::AccountHash,
+    bytesrepr::{FromBytes, ToBytes},
+    contracts::NamedKeys,
+    AccessRights, ApiError, AsymmetricType, CLType, CLTyped, CLValue, ContractPackageHash,
+    EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, HashAddr, Key, Parameter, PublicKey,
+    URef, U256,
+};
 pub use cep47_logic::Meta;
 use cep47_logic::{CEP47Contract, CEP47Storage, TokenId, WithStorage};
 
@@ -20,6 +27,7 @@ use core::convert::TryInto;
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
+    ops::AddAssign,
 };
 
 pub struct CasperCEP47Storage {}
@@ -33,9 +41,11 @@ impl CEP47Storage for CasperCEP47Storage {
     fn name(&self) -> String {
         get_key::<String>("name").unwrap()
     }
+
     fn symbol(&self) -> String {
         get_key::<String>("symbol").unwrap()
     }
+
     fn meta(&self) -> Meta {
         get_key::<Meta>("meta").unwrap()
     }
@@ -49,21 +59,27 @@ impl CEP47Storage for CasperCEP47Storage {
             owner_balance.unwrap()
         }
     }
+
     fn onwer_of(&self, token_id: TokenId) -> Option<PublicKey> {
         get_key::<PublicKey>(&owner_key(&token_id))
     }
+
     fn total_supply(&self) -> U256 {
         get_key::<U256>("total_supply").unwrap()
     }
+
     fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
         get_key::<Meta>(&meta_key(&token_id))
     }
+
     fn is_paused(&self) -> bool {
         get_key::<bool>("paused").unwrap()
     }
+
     fn pause(&mut self) {
         set_key("paused", true);
     }
+
     fn unpause(&mut self) {
         set_key("paused", false);
     }
@@ -77,6 +93,7 @@ impl CEP47Storage for CasperCEP47Storage {
             owner_tokens.unwrap()
         }
     }
+
     fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
         let owner_prev_balance = self.balance_of(owner.clone());
         let owner_new_balance = U256::from(token_ids.len() as u64);
@@ -96,6 +113,7 @@ impl CEP47Storage for CasperCEP47Storage {
             prev_total_supply - owner_prev_balance + owner_new_balance,
         );
     }
+
     fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>) {
         let mut recipient_tokens = self.get_tokens(recipient.clone());
         let mut recipient_balance = self.balance_of(recipient.clone());
@@ -103,19 +121,28 @@ impl CEP47Storage for CasperCEP47Storage {
         let meta = self.meta();
 
         let mut hasher = DefaultHasher::new();
+        let mut nonce: u64 = get_event_nonce();
+        let block_hash: u64 = runtime::get_blocktime().into();
 
         for token_meta in token_metas.clone() {
-            let token_info = (meta.clone(), token_meta.clone());
+            // Derive new unique token id.
+            let token_info = (block_hash, nonce, meta.clone());
             Hash::hash(&token_info, &mut hasher);
-
             let token_id = TokenId::from(hasher.finish().to_string());
+            nonce = nonce + 1;
+
             recipient_tokens.push(token_id.clone());
             total_supply = total_supply + 1;
             set_key(&meta_key(&token_id), token_meta);
             set_key(&owner_key(&token_id), recipient.clone());
 
+            // Emit event.
             emit_mint_one_event(&recipient, &token_id);
         }
+
+        // Update nonce.
+        set_event_nonce(nonce);
+
         recipient_balance = recipient_balance + U256::from(token_metas.len() as u64);
         set_key(
             &balance_key(&recipient.to_account_hash()),
@@ -123,12 +150,13 @@ impl CEP47Storage for CasperCEP47Storage {
         );
         set_key(&token_key(&recipient.to_account_hash()), recipient_tokens);
         set_key("total_supply", total_supply);
-
     }
+
     fn mint_copies(&mut self, recipient: PublicKey, token_meta: Meta, count: U256) {
         let token_metas: Vec<Meta> = vec![token_meta; count.as_usize()];
         self.mint_many(recipient, token_metas);
     }
+
     fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
         let mut owner_tokens = self.get_tokens(owner.clone());
         let mut owner_balance = self.balance_of(owner.clone());
@@ -144,11 +172,14 @@ impl CEP47Storage for CasperCEP47Storage {
             remove_key(&owner_key(&token_id));
             owner_balance = owner_balance - 1;
             total_supply = total_supply - 1;
+
+            emit_burn_one_event(&owner, &token_id);
         }
         set_key(&balance_key(&owner.to_account_hash()), owner_balance);
         set_key(&token_key(&owner.to_account_hash()), owner_tokens);
         set_key("total_supply", total_supply);
     }
+
     fn burn_one(&mut self, owner: PublicKey, token_id: TokenId) {
         let mut owner_tokens = self.get_tokens(owner.clone());
         let owner_balance = self.balance_of(owner.clone());
@@ -163,47 +194,14 @@ impl CEP47Storage for CasperCEP47Storage {
         set_key(&balance_key(&owner.to_account_hash()), owner_balance - 1);
         set_key(&token_key(&owner.to_account_hash()), owner_tokens);
         set_key("total_supply", total_supply - 1);
-    }
-    fn new_uref(&mut self, token_id: TokenId) -> Option<URef> {
-        let value_ref =
-            storage::new_uref(token_id).with_access_rights(AccessRights::READ_ADD_WRITE);
-        let value_key = uref_key(&value_ref);
-        let prev_value_ref = get_key::<URef>(&value_key);
-        if prev_value_ref.is_some() {
-            None
-        } else {
-            set_key(&value_key, value_ref);
-            Some(value_ref)
-        }
-    }
-    fn del_uref(&mut self, token_uref: URef) -> Option<TokenId> {
-        let token_id = self.token_id(token_uref);
-        if token_id.is_some() {
-            let value_key = uref_key(&token_uref);
-            remove_key(&value_key);
-            token_id
-        } else {
-            None
-        }
-    }
-    fn token_id(&self, token_uref: URef) -> Option<TokenId> {
-        let value_key = uref_key(&token_uref);
-        let prev_value_ref = get_key::<URef>(&value_key);
-        if prev_value_ref.is_some() {
-            let res = storage::read::<TokenId>(prev_value_ref.unwrap());
-            if res.is_err() {
-                None
-            } else {
-                res.unwrap()
-            }
-        } else {
-            None
-        }
+        emit_burn_one_event(&owner, &token_id);
     }
 }
+
 pub struct CasperCEP47Contract {
     storage: CasperCEP47Storage,
 }
+
 impl CasperCEP47Contract {
     pub fn new() -> CasperCEP47Contract {
         CasperCEP47Contract {
@@ -211,6 +209,7 @@ impl CasperCEP47Contract {
         }
     }
 }
+
 impl WithStorage<CasperCEP47Storage> for CasperCEP47Contract {
     fn storage(&self) -> &CasperCEP47Storage {
         &self.storage
@@ -219,6 +218,7 @@ impl WithStorage<CasperCEP47Storage> for CasperCEP47Contract {
         &mut self.storage
     }
 }
+
 impl CEP47Contract<CasperCEP47Storage> for CasperCEP47Contract {}
 
 #[cfg(not(feature = "no_name"))]
@@ -358,6 +358,7 @@ pub extern "C" fn transfer_token() {
     }
     let recipient: PublicKey = runtime::get_named_arg("recipient");
     let token_id: TokenId = runtime::get_named_arg("token_id");
+
     emit_transfer_token_event(&sender, &recipient, &token_id);
 
     let mut contract = CasperCEP47Contract::new();
@@ -375,6 +376,11 @@ pub extern "C" fn transfer_many_tokens() {
     }
     let recipient: PublicKey = runtime::get_named_arg("recipient");
     let token_ids: Vec<TokenId> = runtime::get_named_arg("token_ids");
+
+    for token_id in &token_ids {
+        emit_transfer_token_event(&sender, &recipient, &token_id);
+    }
+
     let mut contract = CasperCEP47Contract::new();
     let res = contract.transfer_many_tokens(sender, recipient, token_ids);
     res.unwrap_or_revert();
@@ -389,28 +395,12 @@ pub extern "C" fn transfer_all_tokens() {
         runtime::revert(ApiError::PermissionDenied);
     }
     let recipient: PublicKey = runtime::get_named_arg("recipient");
+
+    emit_transfer_all_tokens_event(&sender, &recipient);
+
     let mut contract = CasperCEP47Contract::new();
     let res = contract.transfer_all_tokens(sender, recipient);
     res.unwrap_or_revert();
-}
-
-#[cfg(not(feature = "no_attach"))]
-#[no_mangle]
-pub extern "C" fn attach() {
-    let token_uref: URef = runtime::get_named_arg("token_uref");
-    let recipient: PublicKey = runtime::get_named_arg("recipient");
-    let mut contract = CasperCEP47Contract::new();
-    contract.attach(token_uref, recipient);
-}
-
-#[cfg(not(feature = "no_detach"))]
-#[no_mangle]
-pub extern "C" fn detach() {
-    let owner: PublicKey = runtime::get_named_arg("owner");
-    let token_id: TokenId = runtime::get_named_arg("token_id");
-    let mut contract = CasperCEP47Contract::new();
-    let res = contract.detach(owner, token_id.clone()); // For test purpose
-    set_key(&test_uref_key(&token_id), res);
 }
 
 pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints {
@@ -511,10 +501,11 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         },
     ));
     entry_points.add_entry_point(endpoint(
-        "burn_many",
+        "mint_copies",
         vec![
-            Parameter::new("owner", CLType::PublicKey),
-            Parameter::new("token_ids", CLType::List(Box::new(CLType::String))),
+            Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("token_meta", CLType::String),
+            Parameter::new("count", CLType::U256),
         ],
         CLType::Unit,
         if secure {
@@ -537,11 +528,10 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         },
     ));
     entry_points.add_entry_point(endpoint(
-        "mint_copies",
+        "burn_many",
         vec![
-            Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_meta", CLType::String),
-            Parameter::new("count", CLType::U256),
+            Parameter::new("owner", CLType::PublicKey),
+            Parameter::new("token_ids", CLType::List(Box::new(CLType::String))),
         ],
         CLType::Unit,
         if secure {
@@ -579,24 +569,6 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         CLType::Unit,
         None,
     ));
-    entry_points.add_entry_point(endpoint(
-        "attach",
-        vec![
-            Parameter::new("token_uref", CLType::URef),
-            Parameter::new("recipient", CLType::PublicKey),
-        ],
-        CLType::Unit,
-        None,
-    ));
-    entry_points.add_entry_point(endpoint(
-        "detach",
-        vec![
-            Parameter::new("owner", CLType::PublicKey),
-            Parameter::new("token_id", CLType::String),
-        ],
-        CLType::Unit,
-        None,
-    ));
     entry_points
 }
 
@@ -620,7 +592,10 @@ pub fn deploy(
         storage::new_uref(U256::zero()).into(),
     );
     named_keys.insert("paused".to_string(), storage::new_uref(paused).into());
-    named_keys.insert("contract_package_hash".to_string(), storage::new_uref(contract_package_hash).into());
+    named_keys.insert(
+        "contract_package_hash".to_string(),
+        storage::new_uref(contract_package_hash).into(),
+    );
 
     let (contract_hash, _) =
         storage::add_contract_version(contract_package_hash, entry_points, named_keys);
@@ -680,14 +655,6 @@ fn meta_key(token_id: &TokenId) -> String {
     format!("metas_{}", token_id)
 }
 
-fn uref_key(uref: &URef) -> String {
-    format!("uref_{}", uref)
-}
-
-fn test_uref_key(token_id: &TokenId) -> String {
-    format!("turef_{}", token_id)
-}
-
 fn token_key(account: &AccountHash) -> String {
     format!("tokens_{}", account)
 }
@@ -723,13 +690,31 @@ pub fn emit_mint_one_event(recipient: &PublicKey, token_id: &TokenId) {
     emit_event(event);
 }
 
+pub fn emit_burn_one_event(owner: &PublicKey, token_id: &TokenId) {
+    let mut event = BTreeMap::new();
+    event.insert("contract_package_hash", package_hash().to_string());
+    event.insert("event_type", "cep47_burn_one".to_string());
+    event.insert("owner", owner.to_string());
+    event.insert("token_id", token_id.to_string());
+    emit_event(event);
+}
+
 pub fn emit_transfer_token_event(sender: &PublicKey, recipient: &PublicKey, token_id: &TokenId) {
     let mut event = BTreeMap::new();
     event.insert("contract_package_hash", package_hash().to_string());
-    event.insert("event_type", "cep47_trasnfer_token".to_string());
+    event.insert("event_type", "cep47_transfer_token".to_string());
     event.insert("sender", sender.to_string());
     event.insert("recipient", recipient.to_string());
     event.insert("token_id", token_id.to_string());
+    emit_event(event);
+}
+
+pub fn emit_transfer_all_tokens_event(sender: &PublicKey, recipient: &PublicKey) {
+    let mut event = BTreeMap::new();
+    event.insert("contract_package_hash", package_hash().to_string());
+    event.insert("event_type", "cep47_transfer_all_tokens".to_string());
+    event.insert("sender", sender.to_string());
+    event.insert("recipient", recipient.to_string());
     emit_event(event);
 }
 
@@ -738,7 +723,14 @@ pub fn emit_event(event: BTreeMap<&str, String>) {
 }
 
 pub fn package_hash() -> ContractPackageHash {
-    let key: [u8; 32] = get_key("contract_package_hash")
-        .unwrap_or_revert_with(ApiError::User(1));
+    let key: [u8; 32] = get_key("contract_package_hash").unwrap_or_revert();
     key.into()
+}
+
+fn get_event_nonce() -> u64 {
+    get_key("event_nonce").unwrap_or_default()
+}
+
+fn set_event_nonce(nonce: u64) {
+    set_key("event_nonce", nonce);
 }

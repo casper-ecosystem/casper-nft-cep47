@@ -209,33 +209,6 @@ impl CEP47Storage for TestStorage {
         self.balances.insert(owner.clone(), owner_new_balance - 1);
         self.tokens.insert(owner, owner_new_tokens);
     }
-
-    fn new_uref(&mut self, token_id: TokenId) -> Option<URef> {
-        let mut rng = rand::thread_rng();
-        let val: [u8; 32] = rng.gen();
-        let uref = URef::new(val, AccessRights::READ_ADD_WRITE);
-        if self.urefs.contains_key(&uref) {
-            None
-        } else {
-            self.urefs.insert(uref, token_id);
-            Some(uref)
-        }
-    }
-
-    fn del_uref(&mut self, token_uref: URef) -> Option<TokenId> {
-        let token_id = self.token_id(token_uref);
-        if token_id.is_none() {
-            None
-        } else {
-            let token_id = token_id.unwrap();
-            self.urefs.remove(&token_uref);
-            Some(token_id)
-        }
-    }
-
-    fn token_id(&self, token_uref: URef) -> Option<TokenId> {
-        self.urefs.get(&token_uref).map(|x| x.clone())
-    }
 }
 
 struct TestContract {
@@ -509,30 +482,4 @@ fn test_transfer_many_tokens() {
     let owner_of_third_token_id = contract.owner_of(ali_third_token_id);
     assert_eq!(owner_of_second_token_id.unwrap(), bob);
     assert_eq!(owner_of_third_token_id.unwrap(), bob);
-}
-
-#[test]
-fn test_attach_and_detach() {
-    let mut contract = TestContract::new();
-    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
-    let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
-
-    contract.mint_one(ali.clone(), meta::banana());
-    let token_id: TokenId = contract.tokens(ali.clone())[0].clone();
-
-    let token_uref: URef = contract.detach(ali.clone(), token_id.clone()).unwrap();
-    assert_eq!(contract.balance_of(ali.clone()), U256::zero());
-    assert_eq!(contract.total_supply(), U256::one());
-    assert!(contract.tokens(ali).is_empty());
-
-    assert_eq!(contract.token_id(token_uref.clone()), token_id.clone());
-    assert_eq!(
-        contract.token_meta(token_id.clone()).unwrap(),
-        meta::banana()
-    );
-
-    contract.attach(token_uref, bob.clone());
-    assert_eq!(contract.balance_of(bob.clone()), U256::one());
-    assert_eq!(contract.total_supply(), U256::one());
-    assert_eq!(contract.tokens(bob), vec![token_id]);
 }

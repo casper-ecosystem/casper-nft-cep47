@@ -172,29 +172,6 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         self.storage_mut().set_tokens(recipient, recipient_tokens);
         Ok(())
     }
-
-    // URef releated function.
-    fn detach(&mut self, owner: PublicKey, token_id: TokenId) -> Option<URef> {
-        let mut tokens = self.storage().get_tokens(owner.clone());
-        if !tokens.contains(&token_id) {
-            None
-        } else {
-            tokens.retain(|x| x != &token_id);
-            self.storage_mut().set_tokens(owner, tokens);
-            self.storage_mut().new_uref(token_id)
-        }
-    }
-
-    fn attach(&mut self, token_uref: URef, recipient: PublicKey) {
-        let token_id = self.storage_mut().del_uref(token_uref).unwrap();
-        let mut tokens = self.storage().get_tokens(recipient.clone());
-        tokens.push(token_id);
-        self.storage_mut().set_tokens(recipient, tokens);
-    }
-
-    fn token_id(&self, token_uref: URef) -> TokenId {
-        self.storage().token_id(token_uref).unwrap()
-    }
 }
 
 pub trait CEP47Storage {
@@ -221,8 +198,4 @@ pub trait CEP47Storage {
     fn mint_copies(&mut self, recipient: PublicKey, token_metas: Meta, count: U256);
     fn burn_one(&mut self, owner: PublicKey, token_id: TokenId);
     fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>);
-
-    fn new_uref(&mut self, token_id: TokenId) -> Option<URef>;
-    fn del_uref(&mut self, token_uref: URef) -> Option<TokenId>;
-    fn token_id(&self, token_uref: URef) -> Option<TokenId>;
 }

@@ -7,11 +7,11 @@ const EVENT_STREAM_ADDRESS = 'http://localhost:60101/events';
 const INSTALL_PAYMENT_AMOUNT = '200000000000';
 const MINT_ONE_PAYMENT_AMOUNT = '2000000000';
 const MINT_COPIES_PAYMENT_AMOUNT = '100000000000';
-const BURN_ONE_PAYMENT_AMOUNT = '2000000000';
+const BURN_ONE_PAYMENT_AMOUNT = '12000000000';
 // const CHAIN_NAME = 'integration-test';
 const CHAIN_NAME = 'casper-net-1';
 const WASM_PATH = "./../target/wasm32-unknown-unknown/release/dragons-nft.wasm";
-const TOKEN_NAME = 'event_nft_2';
+const TOKEN_NAME = 'event_nft_3';
 const TOKEN_SYMBOL = 'DRAG';
 const TOKEN_META = new Map([
     ['origin', 'fire'], 
@@ -27,7 +27,7 @@ const MINT_ONE_META_SIZE = 4;
 const MINT_COPIES_META_SIZE = 10;
 const MINT_MANY_META_SIZE = 10;
 const MINT_COPIES_COUNT = 5;
-const CONTRACT_HASH = '60fe137c02d042419c52647c175c7683a3fdce71f3496a21463d61c478af27f4';
+const CONTRACT_HASH = 'cd02755c7e42c3f191f005d2e3a42324488056be0361935bdbcb6b4722dab14b';
 
 const cep47 = new CEP47Client(NODE_ADDRESS, CHAIN_NAME, EVENT_STREAM_ADDRESS);
 
@@ -118,17 +118,44 @@ const getContractData = async () => {
     console.log(contractData);
 }
 
+const transferToken = async () => {
+  await cep47.setContractHash(CONTRACT_HASH);
+  await cep47.transferToken(
+    KEYS, 
+    KEYS.publicKey, 
+    CLPublicKey.fromHex('017b4822b849f197acf4f49d91315887f913128a9673a2d7ea834cf13c2e6fc606'), '17873237509455618405', 
+    MINT_ONE_PAYMENT_AMOUNT * 100
+  );
+}
+
+const transferAll = async () => {
+  await cep47.setContractHash(CONTRACT_HASH);
+  await cep47.transferAllTokens(
+    KEYS, 
+    KEYS.publicKey, 
+    CLPublicKey.fromHex('017b4822b849f197acf4f49d91315887f913128a9673a2d7ea834cf13c2e6fc606'), 
+    MINT_ONE_PAYMENT_AMOUNT * 100
+  );
+}
+
 const listenTo = async () => {
   await cep47.setContractHash(CONTRACT_HASH);
-  const { stopListening } = cep47.onEvent([constants.CEP47Events.Mint], (eventName, data) => {
+  const { stopListening } = cep47.onEvent(
+  [
+    constants.CEP47Events.Mint, 
+    constants.CEP47Events.TransferToken, 
+    constants.CEP47Events.TransferAllTokens, 
+    constants.CEP47Events.BurnOne
+  ],
+  (eventName, data) => {
     console.log("+", eventName, data);
   })
 
   console.log('Listening to...');
-  setTimeout(() => {
-    console.log("Stopping");
-    stopListening();
-  }, 10000);
+  // setTimeout(() => {
+  //   console.log("Stopping");
+  //   stopListening();
+  // }, 10000);
 }
 
 const getSimpleValue = async (name) => {
@@ -207,6 +234,12 @@ switch (command) {
         break;
     case 'get_contract':
         getContractData();
+        break;
+    case 'transfer_token':
+        transferToken();
+        break;
+    case 'transfer_all':
+        transferAll();
         break;
     case 'listen_to':
         listenTo();

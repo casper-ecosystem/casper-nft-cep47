@@ -1,0 +1,388 @@
+{
+  "api_version": "1.0.0",
+  "stored_value": {
+    "Contract": {
+      "contract_package_hash": "contract-package-wasmde2e302af2be3b54419c4a6e4f61c111d45fb03afab72a62c88fa723fcb21ee8",
+      "contract_wasm_hash": "contract-wasm-f36d165331fcd1451fd5508713242faf6b90f8ddd38bf66c6d70d46c215dc748",
+      "named_keys": [
+        {
+          "name": "balances_5ce1390973f940679134da9f0fd43920ce0d800c6480d9bd91c2dfd9b4df5147",
+          "key": "uref-6c24b4eedf93f7f33636506e380308995409390c03201209ff987bb2cbc6504b-007"
+        },
+        {
+          "name": "contract_package_hash",
+          "key": "uref-3ce2d3936293a6e1ed8c42b642b736d5743a5a9fb05090302d7c16bfcb2853af-007"
+        },
+        {
+          "name": "meta",
+          "key": "uref-0c5c957ce405fb2428b3233270fabaed5a5222b6788efc9ee9f45bf4723cafa4-007"
+        },
+        {
+          "name": "metas_17533245468374124908",
+          "key": "uref-b6c5b203da4e6ea64c0a477e0f146fcbe8d5c63239632c49352cced7e8ffde83-007"
+        },
+        {
+          "name": "name",
+          "key": "uref-bd7f1b143441d713d57b89c1c27455920ea2974cfeb8770af9316227cb277486-007"
+        },
+        {
+          "name": "owners_17533245468374124908",
+          "key": "uref-ac6e00efb078f2fb5413e8087fa36f36e7c8495a07736699c9c6dd9eda6793d0-007"
+        },
+        {
+          "name": "paused",
+          "key": "uref-61ee0b199eceef9caa519b47a246890300b1d6a5d01f48202beaa10248dd40fe-007"
+        },
+        {
+          "name": "symbol",
+          "key": "uref-9c8883fa4ae6afeaef516e4b22c2209e26cf8d5bce545615c6ccb7a48374b2d7-007"
+        },
+        {
+          "name": "tokens_5ce1390973f940679134da9f0fd43920ce0d800c6480d9bd91c2dfd9b4df5147",
+          "key": "uref-695b1890926765c5399c3ce6fc711e460656476c3752dfc5170767a017322693-007"
+        },
+        {
+          "name": "total_supply",
+          "key": "uref-5e86a907b13a4a888130347b4d58c4de57ce082223bb6e807c9b7b1cd77aca22-007"
+        }
+      ],
+      "entry_points": [
+        {
+          "name": "attach",
+          "args": [
+            {
+              "name": "token_uref",
+              "cl_type": "URef"
+            },
+            {
+              "name": "recipient",
+              "cl_type": "PublicKey"
+            }
+          ],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "balance_of",
+          "args": [
+            {
+              "name": "account",
+              "cl_type": "PublicKey"
+            }
+          ],
+          "ret": "U256",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "burn_many",
+          "args": [
+            {
+              "name": "owner",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "token_ids",
+              "cl_type": {
+                "List": "String"
+              }
+            }
+          ],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "burn_one",
+          "args": [
+            {
+              "name": "owner",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "token_id",
+              "cl_type": {
+                "List": "String"
+              }
+            }
+          ],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "detach",
+          "args": [
+            {
+              "name": "owner",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "token_id",
+              "cl_type": "String"
+            }
+          ],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "is_paused",
+          "args": [],
+          "ret": "Bool",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "meta",
+          "args": [],
+          "ret": "String",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "mint_copies",
+          "args": [
+            {
+              "name": "recipient",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "token_meta",
+              "cl_type": "String"
+            },
+            {
+              "name": "count",
+              "cl_type": "U256"
+            }
+          ],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "mint_many",
+          "args": [
+            {
+              "name": "recipient",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "token_metas",
+              "cl_type": {
+                "List": "String"
+              }
+            }
+          ],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "mint_one",
+          "args": [
+            {
+              "name": "recipient",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "token_meta",
+              "cl_type": "String"
+            }
+          ],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "name",
+          "args": [],
+          "ret": "String",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "owner_of",
+          "args": [
+            {
+              "name": "token_id",
+              "cl_type": "String"
+            }
+          ],
+          "ret": {
+            "Option": "PublicKey"
+          },
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "pause",
+          "args": [],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "symbol",
+          "args": [],
+          "ret": "String",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "token_meta",
+          "args": [
+            {
+              "name": "token_id",
+              "cl_type": "String"
+            }
+          ],
+          "ret": {
+            "Option": "String"
+          },
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "tokens",
+          "args": [
+            {
+              "name": "owner",
+              "cl_type": "PublicKey"
+            }
+          ],
+          "ret": {
+            "List": "String"
+          },
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "total_supply",
+          "args": [
+            {
+              "name": "owner",
+              "cl_type": "PublicKey"
+            }
+          ],
+          "ret": {
+            "List": "String"
+          },
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "transfer_all_tokens",
+          "args": [
+            {
+              "name": "sender",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "recipient",
+              "cl_type": "PublicKey"
+            }
+          ],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "transfer_many_tokens",
+          "args": [
+            {
+              "name": "sender",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "recipient",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "token_ids",
+              "cl_type": {
+                "List": "String"
+              }
+            }
+          ],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "transfer_token",
+          "args": [
+            {
+              "name": "sender",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "recipient",
+              "cl_type": "PublicKey"
+            },
+            {
+              "name": "token_id",
+              "cl_type": "String"
+            }
+          ],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        },
+        {
+          "name": "unpause",
+          "args": [],
+          "ret": "Unit",
+          "access": "Public",
+          "entry_point_type": "Contract"
+        }
+      ],
+      "protocol_version": "1.0.0"
+    }
+  },
+  "merkle_proof": "0100000001133c24a6e7a953cec7c6dff35e1f19c6bc97a01e83f6e971c11d10151477ee8f03de2e302af2be3b54419c4a6e4f61c111d45fb03afab72a62c88fa723fcb21ee8f36d165331fcd1451fd5508713242faf6b90f8ddd38bf66c6d70d46c215dc7480a0000004900000062616c616e6365735f35636531333930393733663934303637393133346461396630666434333932306365306438303063363438306439626439316332646664396234646635313437026c24b4eedf93f7f33636506e380308995409390c03201209ff987bb2cbc6504b0715000000636f6e74726163745f7061636b6167655f68617368023ce2d3936293a6e1ed8c42b642b736d5743a5a9fb05090302d7c16bfcb2853af07040000006d657461020c5c957ce405fb2428b3233270fabaed5a5222b6788efc9ee9f45bf4723cafa4071a0000006d657461735f313735333332343534363833373431323439303802b6c5b203da4e6ea64c0a477e0f146fcbe8d5c63239632c49352cced7e8ffde8307040000006e616d6502bd7f1b143441d713d57b89c1c27455920ea2974cfeb8770af9316227cb277486071b0000006f776e6572735f313735333332343534363833373431323439303802ac6e00efb078f2fb5413e8087fa36f36e7c8495a07736699c9c6dd9eda6793d007060000007061757365640261ee0b199eceef9caa519b47a246890300b1d6a5d01f48202beaa10248dd40fe070600000073796d626f6c029c8883fa4ae6afeaef516e4b22c2209e26cf8d5bce545615c6ccb7a48374b2d70747000000746f6b656e735f3563653133393039373366393430363739313334646139663066643433393230636530643830306336343830643962643931633264666439623464663531343702695b1890926765c5399c3ce6fc711e460656476c3752dfc5170767a017322693070c000000746f74616c5f737570706c79025e86a907b13a4a888130347b4d58c4de57ce082223bb6e807c9b7b1cd77aca2207150000000600000061747461636806000000617474616368020000000a000000746f6b656e5f757265660c09000000726563697069656e74160901010a00000062616c616e63655f6f660a00000062616c616e63655f6f6601000000070000006163636f756e7416070101090000006275726e5f6d616e79090000006275726e5f6d616e7902000000050000006f776e65721609000000746f6b656e5f6964730e0a090101080000006275726e5f6f6e65080000006275726e5f6f6e6502000000050000006f776e65721608000000746f6b656e5f69640e0a090101060000006465746163680600000064657461636802000000050000006f776e65721608000000746f6b656e5f69640a0901010900000069735f7061757365640900000069735f70617573656400000000000101040000006d657461040000006d657461000000000a01010b0000006d696e745f636f706965730b0000006d696e745f636f706965730300000009000000726563697069656e74160a000000746f6b656e5f6d6574610a05000000636f756e7407090101090000006d696e745f6d616e79090000006d696e745f6d616e790200000009000000726563697069656e74160b000000746f6b656e5f6d657461730e0a090101080000006d696e745f6f6e65080000006d696e745f6f6e650200000009000000726563697069656e74160a000000746f6b656e5f6d6574610a090101040000006e616d65040000006e616d65000000000a0101080000006f776e65725f6f66080000006f776e65725f6f660100000008000000746f6b656e5f69640a0d160101050000007061757365050000007061757365000000000901010600000073796d626f6c0600000073796d626f6c000000000a01010a000000746f6b656e5f6d6574610a000000746f6b656e5f6d6574610100000008000000746f6b656e5f69640a0d0a010106000000746f6b656e7306000000746f6b656e7301000000050000006f776e6572160e0a01010c000000746f74616c5f737570706c790c000000746f74616c5f737570706c7901000000050000006f776e6572160e0a0101130000007472616e736665725f616c6c5f746f6b656e73130000007472616e736665725f616c6c5f746f6b656e73020000000600000073656e6465721609000000726563697069656e7416090101140000007472616e736665725f6d616e795f746f6b656e73140000007472616e736665725f6d616e795f746f6b656e73030000000600000073656e6465721609000000726563697069656e741609000000746f6b656e5f6964730e0a0901010e0000007472616e736665725f746f6b656e0e0000007472616e736665725f746f6b656e030000000600000073656e6465721609000000726563697069656e741608000000746f6b656e5f69640a09010107000000756e706175736507000000756e7061757365000000000901010100000000000000000000000200000000130e00000012003f5b082099df8f41592be59fdac9e0397ac1b4ba2270ec3e9cfeef7ed769a6b31f00099e755e0329106e4e618858cc1b96b1251448099080c05118e8dd846d42b90f27001c696f52a052d9a7df04c2fc622f2e0dd98688a7ec32f5bd42be9d6f844f37132a00607bfc73940a11ea03c78bf2b0e01433d5be0b7888d6f0d9adeb178a79e01e554600aff02519c89249401d7ea122db629b0fa641722352673a73ec2dc35d5cafa8e75a0079b92bfa00f5058e4fc579306405ef034155739f755059f6794405941b9734a65e0061c97301fbd4ead9fb4a8737cd816f54409fc9ed4f86ca480ee875006b28f5086b009934e9a721247e9ff5da74ba3386fda784bb27dcb09a0c4c83fd8744a4b5aa5a9a001a11b9e48a1709b3b1d75bf502d3d6b0a81e44ed88cb03ceec47308023aed319a500320c588a3fae69b918d3e213305c4b46160dd79f47d9154933592601f7859511a70003718e3338b9a532e906de6238987d014ac94aa27f8304ec009043aa79b2723dde00c8c7d3a0d03d922021bcd79c6bc93efe0aef44d651eb40f5504d057a7b7ff9c4df001c7d83f484ba65421d7b8f9ed06b86299d217c0d2e1211cad52b1883b437dee0f300ec7f76566c95fcfb783ead420c554bdbd5bfdfc23600cfcba8b321882457882e00010700000000011eb2a3081e5d3596f032b47b2acaebe37241a34209a131741d95c9fce7fdafd002015fd25d362a2b4376f9c5997ef27244134257bdfddc3e1b8ab0b283747e66208e03014634904112272b45c943106d96b1bb7f1bdddc8d21ea56caedb69bbb3e4305e804018ad5dea911b4fb12e6d95ba70df2d823ba8e0923fe5b156f1f39c6c20e1b84c705014074fbd1ea05450c65ad5f776c2983dd9ad550d328e8eab523f9f1bbe7b438a206015eacaebe1945d427b031f9ac430d23b3eb8a6d19e1a9ed7a3fb4e8ad3da47bea07012f3b47e854327d4e52030674ce47cdb54392dbac99e6fa3d4700cd47310deebd"
+}
+JSON undefined true
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+undefined
+e {
+  Contract: e {
+    contractPackageHash: 'contract-package-wasmde2e302af2be3b54419c4a6e4f61c111d45fb03afab72a62c88fa723fcb21ee8',
+    contractWasmHash: 'contract-wasm-f36d165331fcd1451fd5508713242faf6b90f8ddd38bf66c6d70d46c215dc748',
+    entrypoints: [
+      undefined, undefined, undefined,
+      undefined, undefined, undefined,
+      undefined, undefined, undefined,
+      undefined, undefined, undefined,
+      undefined, undefined, undefined,
+      undefined, undefined, undefined,
+      undefined, undefined, undefined
+    ],
+    protocolVersion: '1.0.0',
+    namedKeys: [
+      [e], [e], [e], [e],
+      [e], [e], [e], [e],
+      [e], [e]
+    ]
+  }
+}

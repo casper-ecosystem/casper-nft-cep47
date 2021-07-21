@@ -16,7 +16,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "casper-js-sdk": "2.1.0",
-    "casper-cep47-js-client": "0.1.1"
+    "casper-js-sdk": "/Users/janhoffmann/Work/casperlabs/casper-js-sdk",
+    "casper-cep47-js-client": "/Users/janhoffmann/Work/casperlabs/casper-cep47-js-client"
   }
 }

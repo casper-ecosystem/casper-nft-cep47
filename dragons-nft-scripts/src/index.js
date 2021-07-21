@@ -1,14 +1,15 @@
-const { Keys, CLPublicKey } = require("casper-js-sdk");
-const { CEP47Client, utils } = require("casper-cep47-js-client");
+const { CLValueBuilder, Keys, CLPublicKey } = require("casper-js-sdk");
+const { CEP47Client, utils, constants } = require("casper-cep47-js-client");
 
-const NODE_ADDRESS = 'http://3.143.158.19:7777/rpc';
-// const NODE_ADDRESS = 'http://localhost:40101/rpc';
+// const NODE_ADDRESS = 'http://3.143.158.19:7777/rpc';
+const NODE_ADDRESS = 'http://localhost:40101/rpc';
+const EVENT_STREAM_ADDRESS = 'http://localhost:60101/events';
 const INSTALL_PAYMENT_AMOUNT = '200000000000';
 const MINT_ONE_PAYMENT_AMOUNT = '2000000000';
 const MINT_COPIES_PAYMENT_AMOUNT = '100000000000';
 const BURN_ONE_PAYMENT_AMOUNT = '2000000000';
-const CHAIN_NAME = 'integration-test';
-// const CHAIN_NAME = 'casper-net-1';
+// const CHAIN_NAME = 'integration-test';
+const CHAIN_NAME = 'casper-net-1';
 const WASM_PATH = "./../target/wasm32-unknown-unknown/release/dragons-nft.wasm";
 const TOKEN_NAME = 'event_nft_2';
 const TOKEN_SYMBOL = 'DRAG';
@@ -16,7 +17,8 @@ const TOKEN_META = new Map([
     ['origin', 'fire'], 
     ['lifetime', 'infinite']
 ]);
-const KEY_PAIR_PATH = '/home/ziel/workspace/casperlabs/integration-key/master';
+// const KEY_PAIR_PATH = '/home/ziel/workspace/casperlabs/integration-key/master';
+const KEY_PAIR_PATH = '/Users/janhoffmann/casper-node/utils/nctl/assets/net-1/faucet';
 const KEYS = Keys.Ed25519.parseKeyFiles(
     `${KEY_PAIR_PATH}/public_key.pem`,
     `${KEY_PAIR_PATH}/secret_key.pem`
@@ -25,9 +27,9 @@ const MINT_ONE_META_SIZE = 4;
 const MINT_COPIES_META_SIZE = 10;
 const MINT_MANY_META_SIZE = 10;
 const MINT_COPIES_COUNT = 5;
-const CONTRACT_HASH = '854db6358ec33c9d5049421f141165bd373d387fb14bb1dfa3319cdc8c873597';
+const CONTRACT_HASH = '60fe137c02d042419c52647c175c7683a3fdce71f3496a21463d61c478af27f4';
 
-const cep47 = new CEP47Client(NODE_ADDRESS, CHAIN_NAME);
+const cep47 = new CEP47Client(NODE_ADDRESS, CHAIN_NAME, EVENT_STREAM_ADDRESS);
 
 const install = async () => {
     const deployHash = await cep47.install(
@@ -37,7 +39,7 @@ const install = async () => {
 };
 
 const mintOne = async () => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     let meta = randomMetaMap(MINT_ONE_META_SIZE);
     const deployHash = await cep47.mintOne(KEYS, KEYS.publicKey, meta, MINT_ONE_PAYMENT_AMOUNT);
     console.log(`Mint One`);
@@ -45,14 +47,14 @@ const mintOne = async () => {
 }
 
 const pause = async () => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     const deployHash = await cep47.pause(KEYS, MINT_ONE_PAYMENT_AMOUNT);
     console.log(`Pause`);
     console.log(`... DeployHash: ${deployHash}`);
 }
 
 const mintCopies = async () => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     let meta = randomMetaMap(MINT_COPIES_META_SIZE);
     const deployHash = await cep47.mintCopies(
         KEYS, KEYS.publicKey, meta, MINT_COPIES_COUNT, MINT_COPIES_PAYMENT_AMOUNT);
@@ -61,7 +63,7 @@ const mintCopies = async () => {
 }
 
 const mintMany = async () => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     let meta = randomMetaArray(MINT_MANY_META_SIZE);
     const deployHash = await cep47.mintMany(
         KEYS, KEYS.publicKey, meta, MINT_COPIES_PAYMENT_AMOUNT);
@@ -70,37 +72,37 @@ const mintMany = async () => {
 }
 
 const burnOne = async (tokenId) => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     const deployHash = await cep47.burnOne(KEYS, KEYS.publicKey, tokenId, BURN_ONE_PAYMENT_AMOUNT);
     console.log(`Burn One`);
     console.log(`... DeployHash: ${deployHash}`);
 }
 
 const getName = async () => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     const value = await cep47.name();
     console.log(`Contract Name: ${value}`);
 }
 
 const balanceOf = async () => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     const balance = await cep47.balanceOf(CLPublicKey.fromHex("01694a09937e05f5a60b5f56d1d108f65ae716c45879fca79fca89ec1c20e15431"));
     console.log(`Balance: ${balance.value()}`);
 }
 
 const tokensOf = async (publicKeyHex) => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     const value = await cep47.getTokensOf(CLPublicKey.fromHex(publicKeyHex));
     console.log(`Tokens: ${JSON.stringify(value, null, 2)}`);
 }
 const ownerOf = async (tokenId) => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     const value = await cep47.getOwnerOf(tokenId);
     console.log(`Owner public key hex: ${value}`);
 }
 
 const tokenMeta = async (tokenId) => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     const value = await cep47.getTokenMeta(tokenId);
     console.log('Token meta', value);
 }
@@ -110,8 +112,27 @@ const printAccount = async () => {
     console.log(account);
 }
 
+const getContractData = async () => {
+    const stateRootHash = await utils.getStateRootHash(NODE_ADDRESS);
+    const contractData = await utils.getContractData(NODE_ADDRESS, stateRootHash, CONTRACT_HASH);
+    console.log(contractData);
+}
+
+const listenTo = async () => {
+  await cep47.setContractHash(CONTRACT_HASH);
+  const { stopListening } = cep47.onEvent([constants.CEP47Events.Mint], (eventName, data) => {
+    console.log("+", eventName, data);
+  })
+
+  console.log('Listening to...');
+  setTimeout(() => {
+    console.log("Stopping");
+    stopListening();
+  }, 10000);
+}
+
 const getSimpleValue = async (name) => {
-    cep47.setContractHash(CONTRACT_HASH);
+    await cep47.setContractHash(CONTRACT_HASH);
     const value = await cep47[name]();
     console.log(name, value);
 };
@@ -183,6 +204,12 @@ switch (command) {
         break;
     case 'print_account':
         printAccount();
+        break;
+    case 'get_contract':
+        getContractData();
+        break;
+    case 'listen_to':
+        listenTo();
         break;
     default:
         console.log(`Command unknown ${command}`)

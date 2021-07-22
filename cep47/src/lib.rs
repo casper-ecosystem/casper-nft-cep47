@@ -421,7 +421,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     let mut entry_points = EntryPoints::new();
     entry_points.add_entry_point(endpoint("name", vec![], CLType::String, None));
     entry_points.add_entry_point(endpoint("symbol", vec![], CLType::String, None));
-    entry_points.add_entry_point(endpoint("meta", vec![], CLType::String, None));
+    entry_points.add_entry_point(endpoint("meta", vec![], Meta::cl_type(), None));
     entry_points.add_entry_point(endpoint("total_supply", vec![], CLType::U256, None));
     entry_points.add_entry_point(endpoint("is_paused", vec![], CLType::Bool, None));
     entry_points.add_entry_point(endpoint(
@@ -478,7 +478,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_one",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_meta", CLType::String), // TODO: 
+            Parameter::new("token_meta", Meta::cl_type()), 
         ],
         CLType::Unit,
         if secure {
@@ -491,7 +491,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_many",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_metas", CLType::List(Box::new(CLType::String))),
+            Parameter::new("token_metas", CLType::List(Box::new(Meta::cl_type()))),
         ],
         CLType::Unit,
         if secure {
@@ -504,7 +504,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_copies",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_meta", CLType::String),
+            Parameter::new("token_meta", Meta::cl_type()),
             Parameter::new("count", CLType::U256),
         ],
         CLType::Unit,
@@ -518,7 +518,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "burn_one",
         vec![
             Parameter::new("owner", CLType::PublicKey),
-            Parameter::new("token_id", CLType::List(Box::new(CLType::String))),
+            Parameter::new("token_id", CLType::String),
         ],
         CLType::Unit,
         if secure {

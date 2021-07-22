@@ -37,9 +37,13 @@ pub type Meta = BTreeMap<String, String>;
 
 impl CasperCEP47Contract {
     pub fn deploy() -> Self {
-        let admin: PublicKey = SecretKey::ed25519_from_bytes([1u8; 32]).unwrap().into();
-        let ali: PublicKey = SecretKey::ed25519_from_bytes([3u8; 32]).unwrap().into();
-        let bob: PublicKey = SecretKey::ed25519_from_bytes([5u8; 32]).unwrap().into();
+        let admin_secret = SecretKey::ed25519_from_bytes([1u8; 32]).unwrap();
+        let ali_secret = SecretKey::ed25519_from_bytes([3u8; 32]).unwrap();
+        let bob_secret = SecretKey::ed25519_from_bytes([5u8; 32]).unwrap();
+
+        let admin: PublicKey = (&admin_secret).into();
+        let ali: PublicKey = (&ali_secret).into();
+        let bob: PublicKey = (&bob_secret).into();
         let mut context = TestContextBuilder::new()
             .with_public_key(admin.clone(), U512::from(500_000_000_000_000_000u64))
             .with_public_key(ali.clone(), U512::from(500_000_000_000_000_000u64))

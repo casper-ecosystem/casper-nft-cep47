@@ -412,7 +412,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
             BTreeSet::default(),
         )
         .unwrap_or_revert();
-        runtime::put_key("deployer_access", Key::URef(deployer_group[0]));
+        runtime::put_key("deployer_group_access", Key::URef(deployer_group[0]));
         true
     } else {
         false
@@ -429,7 +429,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         vec![],
         CLType::Unit,
         if secure {
-            Some("deployer_access")
+            Some("deployer")
         } else {
             None
         },
@@ -439,7 +439,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         vec![],
         CLType::Unit,
         if secure {
-            Some("deployer_access")
+            Some("deployer")
         } else {
             None
         },
@@ -478,11 +478,11 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_one",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_meta", CLType::String),
+            Parameter::new("token_meta", CLType::String), // TODO: 
         ],
         CLType::Unit,
         if secure {
-            Some("deployer_access")
+            Some("deployer")
         } else {
             None
         },
@@ -495,7 +495,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         ],
         CLType::Unit,
         if secure {
-            Some("deployer_access")
+            Some("deployer")
         } else {
             None
         },
@@ -509,7 +509,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         ],
         CLType::Unit,
         if secure {
-            Some("deployer_access")
+            Some("deployer")
         } else {
             None
         },
@@ -522,7 +522,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         ],
         CLType::Unit,
         if secure {
-            Some("deployer_access")
+            Some("deployer")
         } else {
             None
         },
@@ -535,7 +535,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         ],
         CLType::Unit,
         if secure {
-            Some("deployer_access")
+            Some("deployer")
         } else {
             None
         },

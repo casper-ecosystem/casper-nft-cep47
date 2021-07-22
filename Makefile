@@ -5,7 +5,6 @@ build-contract:
 	cargo build --release -p dragons-nft --target wasm32-unknown-unknown
 
 test-only:
-	cargo test -p cep47-test
 	cargo test -p cep47-logic
 	cargo test -p dragons-nft-tests
 
@@ -16,7 +15,7 @@ copy-wasm-file-to-test:
 test: build-contract copy-wasm-file-to-test test-only
 
 clippy:
-	echo 1
+	cargo clippy --all-targets --all -- -A clippy::ptr_arg
 
 check-lint: clippy
 	cargo fmt --all -- --check

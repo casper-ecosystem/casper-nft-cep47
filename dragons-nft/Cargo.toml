@@ -5,8 +5,8 @@ authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-casper-contract = "1.2.0"
-casper-types = "1.2.0"
+casper-contract = "1.2.1"
+casper-types = "1.2.1"
 cep47 = { path="../cep47", features = ["no_owner_of"]}
 
 [[bin]]

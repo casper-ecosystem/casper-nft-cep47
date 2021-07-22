@@ -3,7 +3,6 @@
 members = [
     "cep47",
     "cep47-logic",
-    "cep47-test",
     "dragons-nft",
 	"dragons-nft-tests"
 ]

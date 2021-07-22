@@ -2,3 +2,4 @@ target
 Cargo.lock
 dragons-nft-tests/wasm/*.wasm
 node_modules
+cep47-test

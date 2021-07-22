@@ -1,12 +1,12 @@
 [package]
 name = "cep47"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-casper-contract = "1.2.0"
-casper-types = "1.2.0"
+casper-contract = "1.2.1"
+casper-types = "1.2.1"
 cep47-logic = { path = "../cep47-logic" }
 
 [lib]

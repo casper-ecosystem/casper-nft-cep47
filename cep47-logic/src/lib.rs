@@ -51,7 +51,7 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
     }
 
     fn owner_of(&self, token_id: TokenId) -> Option<PublicKey> {
-        self.storage().onwer_of(token_id)
+        self.storage().owner_of(token_id)
     }
 
     fn total_supply(&self) -> U256 {
@@ -182,7 +182,7 @@ pub trait CEP47Storage {
 
     // Getters
     fn balance_of(&self, owner: PublicKey) -> U256;
-    fn onwer_of(&self, token_id: TokenId) -> Option<PublicKey>;
+    fn owner_of(&self, token_id: TokenId) -> Option<PublicKey>;
     fn total_supply(&self) -> U256;
     fn token_meta(&self, token_id: TokenId) -> Option<Meta>;
 

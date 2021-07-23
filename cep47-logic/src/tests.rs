@@ -62,7 +62,7 @@ impl CEP47Storage for TestStorage {
         }
     }
 
-    fn onwer_of(&self, token_id: TokenId) -> Option<PublicKey> {
+    fn owner_of(&self, token_id: TokenId) -> Option<PublicKey> {
         let owner = self.belongs_to.get(&token_id);
         if owner.is_some() {
             Some(owner.unwrap().clone())

@@ -1,10 +1,7 @@
 use std::collections::BTreeMap;
 
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
-use casper_types::{
-    account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, PublicKey, RuntimeArgs,
-    SecretKey, URef, U256, U512,
-};
+use casper_types::{CLTyped, Key, PublicKey, RuntimeArgs, SecretKey, U256, U512, URef, account::AccountHash, bytesrepr::FromBytes, runtime_args};
 
 pub mod token_cfg {
     use super::Meta;
@@ -100,6 +97,27 @@ impl CasperCEP47Contract {
         }
     }
 
+    pub fn query_dictionary_value<T: CLTyped + FromBytes>(
+        &self,
+        dict_name: &str,
+        key: &str,
+    ) -> Option<T> {
+        match self.context.query_dictionary_item(
+            Key::Hash(self.hash),
+            Some(dict_name.to_string()),
+            key.to_string(),
+        ) {
+            Err(_) => None,
+            Ok(maybe_value) => {
+                println!("VALUE: {:#?}", maybe_value);
+                let value = maybe_value
+                    .into_t()
+                    .unwrap_or_else(|_| panic!("is not expected type."));
+                Some(value)
+            }
+        }
+    }
+
     pub fn name(&self) -> String {
         self.query_contract("name").unwrap()
     }
@@ -117,21 +135,21 @@ impl CasperCEP47Contract {
     }
 
     pub fn owner_of(&self, token_id: &TokenId) -> Option<PublicKey> {
-        self.query_contract(owner_key(&token_id).as_str())
+        self.query_dictionary_value("owner",owner_key(&token_id).as_str())
     }
 
     pub fn balance_of(&self, owner: PublicKey) -> U256 {
-        self.query_contract(balance_key(&owner.to_account_hash()).as_str())
+        self.query_dictionary_value("balance", balance_key(&owner.to_account_hash()).as_str())
             .unwrap_or_default()
     }
 
     pub fn tokens(&self, owner: PublicKey) -> Vec<TokenId> {
-        self.query_contract::<Vec<TokenId>>(token_key(&owner.to_account_hash()).as_str())
+        self.query_dictionary_value::<Vec<TokenId>>("tokens", token_key(&owner.to_account_hash()).as_str())
             .unwrap_or_default()
     }
 
     pub fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
-        self.query_contract(meta_key(&token_id).as_str())
+        self.query_dictionary_value("metas",meta_key(&token_id).as_str())
     }
 
     pub fn token_uref(&self, token_id: &TokenId) -> Option<URef> {
@@ -249,19 +267,19 @@ impl CasperCEP47Contract {
 }
 
 fn balance_key(account: &AccountHash) -> String {
-    format!("balances_{}", account)
+    format!("{}", account)
 }
 
 fn owner_key(token_id: &TokenId) -> String {
-    format!("owners_{}", token_id)
+    format!("{}", token_id)
 }
 
 fn meta_key(token_id: &TokenId) -> String {
-    format!("metas_{}", token_id)
+    format!("{}", token_id)
 }
 
 fn token_key(account: &AccountHash) -> String {
-    format!("tokens_{}", account)
+    format!("{}", account)
 }
 
 fn test_uref_key(token_id: &TokenId) -> String {

@@ -9,16 +9,19 @@ use alloc::{
     string::String,
 };
 use casper_contract::{
-    contract_api::{runtime, storage},
+    contract_api::{
+        runtime::{self, call_versioned_contract},
+        storage::{self, dictionary_get, dictionary_put},
+    },
     unwrap_or_revert::UnwrapOrRevert,
 };
 use casper_types::{
     account::AccountHash,
     bytesrepr::{FromBytes, ToBytes},
     contracts::NamedKeys,
-    AccessRights, ApiError, AsymmetricType, CLType, CLTyped, CLValue, ContractPackageHash,
-    EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, HashAddr, Key, Parameter, PublicKey,
-    URef, U256,
+    runtime_args, AccessRights, ApiError, AsymmetricType, CLType, CLTyped, CLValue,
+    ContractPackageHash, EntryPoint, EntryPointAccess, EntryPointType, EntryPoints, HashAddr, Key,
+    Parameter, PublicKey, RuntimeArgs, URef, U256,
 };
 pub use cep47_logic::Meta;
 use cep47_logic::{CEP47Contract, CEP47Storage, TokenId, WithStorage};
@@ -52,7 +55,10 @@ impl CEP47Storage for CasperCEP47Storage {
 
     // Getters
     fn balance_of(&self, owner: PublicKey) -> U256 {
-        let owner_balance = get_key::<U256>(&balance_key(&owner.to_account_hash()));
+        let balance_dict: URef = get_dict_uref("balance");
+        let owner_balance =
+            dictionary_get::<U256>(balance_dict, &balance_key(&owner.to_account_hash()))
+                .unwrap_or_revert();
         if owner_balance.is_none() {
             U256::from(0)
         } else {
@@ -60,8 +66,9 @@ impl CEP47Storage for CasperCEP47Storage {
         }
     }
 
-    fn onwer_of(&self, token_id: TokenId) -> Option<PublicKey> {
-        get_key::<PublicKey>(&owner_key(&token_id))
+    fn owner_of(&self, token_id: TokenId) -> Option<PublicKey> {
+        let owner_dict: URef = get_dict_uref("owner");
+        dictionary_get::<PublicKey>(owner_dict, &owner_key(&token_id)).unwrap_or_revert()
     }
 
     fn total_supply(&self) -> U256 {
@@ -69,7 +76,8 @@ impl CEP47Storage for CasperCEP47Storage {
     }
 
     fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
-        get_key::<Meta>(&meta_key(&token_id))
+        let meta_dict: URef = get_dict_uref("metas");
+        dictionary_get::<Meta>(meta_dict, &meta_key(&token_id)).unwrap_or_revert()
     }
 
     fn is_paused(&self) -> bool {
@@ -86,7 +94,10 @@ impl CEP47Storage for CasperCEP47Storage {
 
     // Setters
     fn get_tokens(&self, owner: PublicKey) -> Vec<TokenId> {
-        let owner_tokens = get_key::<Vec<TokenId>>(&token_key(&owner.to_account_hash()));
+        let tokens_dict: URef = get_dict_uref("tokens");
+        let owner_tokens =
+            dictionary_get::<Vec<TokenId>>(tokens_dict, &token_key(&owner.to_account_hash()))
+                .unwrap_or_revert();
         if owner_tokens.is_none() {
             Vec::<TokenId>::new()
         } else {
@@ -95,6 +106,10 @@ impl CEP47Storage for CasperCEP47Storage {
     }
 
     fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
+        let owner_dict: URef = get_dict_uref("owner");
+        let balance_dict: URef = get_dict_uref("balance");
+        let tokens_dict: URef = get_dict_uref("tokens");
+
         let owner_prev_balance = self.balance_of(owner.clone());
         let owner_new_balance = U256::from(token_ids.len() as u64);
         let prev_total_supply = self.total_supply();
@@ -104,10 +119,14 @@ impl CEP47Storage for CasperCEP47Storage {
             remove_key(&owner_key(&token_id));
         }
         for token_id in token_ids.clone() {
-            set_key(&owner_key(&token_id), owner.clone());
+            dictionary_put(owner_dict, &owner_key(&token_id), owner.clone());
         }
-        set_key(&token_key(&owner.to_account_hash()), token_ids);
-        set_key(&balance_key(&owner.to_account_hash()), owner_new_balance);
+        dictionary_put(tokens_dict, &token_key(&owner.to_account_hash()), token_ids);
+        dictionary_put(
+            balance_dict,
+            &balance_key(&owner.to_account_hash()),
+            owner_new_balance,
+        );
         set_key(
             "total_supply",
             prev_total_supply - owner_prev_balance + owner_new_balance,
@@ -119,10 +138,12 @@ impl CEP47Storage for CasperCEP47Storage {
         let mut recipient_balance = self.balance_of(recipient.clone());
         let mut total_supply = self.total_supply();
         let meta = self.meta();
-
         let mut hasher = DefaultHasher::new();
         let mut nonce: u64 = get_event_nonce();
         let block_hash: u64 = runtime::get_blocktime().into();
+
+        let owner_dict: URef = get_dict_uref("owner");
+        let meta_dict: URef = get_dict_uref("metas");
 
         for token_meta in token_metas.clone() {
             // Derive new unique token id.
@@ -133,8 +154,8 @@ impl CEP47Storage for CasperCEP47Storage {
 
             recipient_tokens.push(token_id.clone());
             total_supply = total_supply + 1;
-            set_key(&meta_key(&token_id), token_meta);
-            set_key(&owner_key(&token_id), recipient.clone());
+            dictionary_put(meta_dict, &meta_key(&token_id), token_meta);
+            dictionary_put(owner_dict, &owner_key(&token_id), recipient.clone());
 
             // Emit event.
             emit_mint_one_event(&recipient, &token_id);
@@ -144,11 +165,18 @@ impl CEP47Storage for CasperCEP47Storage {
         set_event_nonce(nonce);
 
         recipient_balance = recipient_balance + U256::from(token_metas.len() as u64);
-        set_key(
+        let balance_dict: URef = get_dict_uref("balance");
+        dictionary_put(
+            balance_dict,
             &balance_key(&recipient.to_account_hash()),
             recipient_balance,
         );
-        set_key(&token_key(&recipient.to_account_hash()), recipient_tokens);
+        let tokens_dict: URef = get_dict_uref("tokens");
+        dictionary_put(
+            tokens_dict,
+            &token_key(&recipient.to_account_hash()),
+            recipient_tokens,
+        );
         set_key("total_supply", total_supply);
     }
 
@@ -161,22 +189,33 @@ impl CEP47Storage for CasperCEP47Storage {
         let mut owner_tokens = self.get_tokens(owner.clone());
         let mut owner_balance = self.balance_of(owner.clone());
         let mut total_supply = self.total_supply();
-
+        let meta_dict: URef = get_dict_uref("metas");
+        let owner_dict: URef = get_dict_uref("owner");
         for token_id in token_ids.clone() {
             let index = owner_tokens
                 .iter()
                 .position(|x| *x == token_id.clone())
                 .unwrap_or_revert();
             owner_tokens.remove(index);
-            remove_key(&meta_key(&token_id));
-            remove_key(&owner_key(&token_id));
+            dictionary_put(meta_dict, &meta_key(&token_id), -1);
+            dictionary_put(owner_dict, &owner_key(&token_id), -1);
             owner_balance = owner_balance - 1;
             total_supply = total_supply - 1;
 
             emit_burn_one_event(&owner, &token_id);
         }
-        set_key(&balance_key(&owner.to_account_hash()), owner_balance);
-        set_key(&token_key(&owner.to_account_hash()), owner_tokens);
+        let tokens_dict: URef = get_dict_uref("tokens");
+        let balance_dict: URef = get_dict_uref("balance");
+        dictionary_put(
+            balance_dict,
+            &balance_key(&owner.to_account_hash()),
+            owner_balance,
+        );
+        dictionary_put(
+            tokens_dict,
+            &token_key(&owner.to_account_hash()),
+            owner_tokens,
+        );
         set_key("total_supply", total_supply);
     }
 
@@ -189,10 +228,23 @@ impl CEP47Storage for CasperCEP47Storage {
             .position(|x| *x == token_id.clone())
             .unwrap_or_revert();
         owner_tokens.remove(index);
-        remove_key(&meta_key(&token_id));
-        remove_key(&owner_key(&token_id));
-        set_key(&balance_key(&owner.to_account_hash()), owner_balance - 1);
-        set_key(&token_key(&owner.to_account_hash()), owner_tokens);
+
+        let meta_dict: URef = get_dict_uref("metas");
+        let owner_dict: URef = get_dict_uref("owner");
+        let tokens_dict: URef = get_dict_uref("tokens");
+        let balance_dict: URef = get_dict_uref("balance");
+        dictionary_put(meta_dict, &meta_key(&token_id), -1);
+        dictionary_put(owner_dict, &owner_key(&token_id), -1);
+        dictionary_put(
+            balance_dict,
+            &balance_key(&owner.to_account_hash()),
+            owner_balance - 1,
+        );
+        dictionary_put(
+            tokens_dict,
+            &token_key(&owner.to_account_hash()),
+            owner_tokens,
+        );
         set_key("total_supply", total_supply - 1);
         emit_burn_one_event(&owner, &token_id);
     }
@@ -403,6 +455,14 @@ pub extern "C" fn transfer_all_tokens() {
     res.unwrap_or_revert();
 }
 
+#[no_mangle]
+pub extern "C" fn init_dicts() {
+    let dict_name_list = vec!["metas","owner","tokens","balance"];
+    for dict_name in dict_name_list {
+        storage::new_dictionary(dict_name).unwrap_or_revert();
+    }
+}
+
 pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints {
     let secure = if let Some(contract_package_hash) = package_hash {
         let deployer_group = storage::create_contract_user_group(
@@ -425,24 +485,22 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint("total_supply", vec![], CLType::U256, None));
     entry_points.add_entry_point(endpoint("is_paused", vec![], CLType::Bool, None));
     entry_points.add_entry_point(endpoint(
+        "init_dicts",
+        vec![],
+        CLType::Bool,
+        None,
+    ));
+    entry_points.add_entry_point(endpoint(
         "pause",
         vec![],
         CLType::Unit,
-        if secure {
-            Some("deployer")
-        } else {
-            None
-        },
+        if secure { Some("deployer") } else { None },
     ));
     entry_points.add_entry_point(endpoint(
         "unpause",
         vec![],
         CLType::Unit,
-        if secure {
-            Some("deployer")
-        } else {
-            None
-        },
+        if secure { Some("deployer") } else { None },
     ));
     entry_points.add_entry_point(endpoint(
         "balance_of",
@@ -478,14 +536,10 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_one",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_meta", Meta::cl_type()), 
+            Parameter::new("token_meta", Meta::cl_type()),
         ],
         CLType::Unit,
-        if secure {
-            Some("deployer")
-        } else {
-            None
-        },
+        if secure { Some("deployer") } else { None },
     ));
     entry_points.add_entry_point(endpoint(
         "mint_many",
@@ -494,11 +548,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
             Parameter::new("token_metas", CLType::List(Box::new(Meta::cl_type()))),
         ],
         CLType::Unit,
-        if secure {
-            Some("deployer")
-        } else {
-            None
-        },
+        if secure { Some("deployer") } else { None },
     ));
     entry_points.add_entry_point(endpoint(
         "mint_copies",
@@ -508,11 +558,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
             Parameter::new("count", CLType::U256),
         ],
         CLType::Unit,
-        if secure {
-            Some("deployer")
-        } else {
-            None
-        },
+        if secure { Some("deployer") } else { None },
     ));
     entry_points.add_entry_point(endpoint(
         "burn_one",
@@ -521,11 +567,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
             Parameter::new("token_id", CLType::String),
         ],
         CLType::Unit,
-        if secure {
-            Some("deployer")
-        } else {
-            None
-        },
+        if secure { Some("deployer") } else { None },
     ));
     entry_points.add_entry_point(endpoint(
         "burn_many",
@@ -534,11 +576,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
             Parameter::new("token_ids", CLType::List(Box::new(CLType::String))),
         ],
         CLType::Unit,
-        if secure {
-            Some("deployer")
-        } else {
-            None
-        },
+        if secure { Some("deployer") } else { None },
     ));
     entry_points.add_entry_point(endpoint(
         "transfer_token",
@@ -608,6 +646,19 @@ pub fn deploy(
         format!("{}_contract_hash", token_name).as_str(),
         contract_hash_pack.into(),
     );
+    
+    call_versioned_contract::<()>(
+        contract_package_hash,
+        None,
+        "init_dicts",
+        runtime_args! {},
+    );
+}
+
+fn get_dict_uref(dict_name: &str)->URef{
+    let dict_key: Key = runtime::get_key(dict_name).unwrap_or_revert();
+    let dict_uref: &URef = dict_key.as_uref().unwrap_or_revert();
+    *dict_uref
 }
 
 fn get_key<T: FromBytes + CLTyped>(name: &str) -> Option<T> {
@@ -644,19 +695,19 @@ fn remove_key(name: &str) {
 }
 
 fn balance_key(account: &AccountHash) -> String {
-    format!("balances_{}", account)
+    format!("{}", account)
 }
 
 fn owner_key(token_id: &TokenId) -> String {
-    format!("owners_{}", token_id)
+    format!("{}", token_id)
 }
 
 fn meta_key(token_id: &TokenId) -> String {
-    format!("metas_{}", token_id)
+    format!("{}", token_id)
 }
 
 fn token_key(account: &AccountHash) -> String {
-    format!("tokens_{}", account)
+    format!("{}", account)
 }
 
 pub fn endpoint(

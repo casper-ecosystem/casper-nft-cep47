@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
-use casper_types::{CLTyped, Key, PublicKey, RuntimeArgs, SecretKey, U256, U512, URef, account::AccountHash, bytesrepr::FromBytes, runtime_args};
+use casper_types::{
+    account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, Key, PublicKey, RuntimeArgs,
+    SecretKey, URef, U256, U512,
+};
 
 pub mod token_cfg {
     use super::Meta;
@@ -135,7 +138,7 @@ impl CasperCEP47Contract {
     }
 
     pub fn owner_of(&self, token_id: &TokenId) -> Option<PublicKey> {
-        self.query_dictionary_value("owner",owner_key(&token_id).as_str())
+        self.query_dictionary_value("owner", owner_key(&token_id).as_str())
     }
 
     pub fn balance_of(&self, owner: PublicKey) -> U256 {
@@ -144,12 +147,15 @@ impl CasperCEP47Contract {
     }
 
     pub fn tokens(&self, owner: PublicKey) -> Vec<TokenId> {
-        self.query_dictionary_value::<Vec<TokenId>>("tokens", token_key(&owner.to_account_hash()).as_str())
-            .unwrap_or_default()
+        self.query_dictionary_value::<Vec<TokenId>>(
+            "tokens",
+            token_key(&owner.to_account_hash()).as_str(),
+        )
+        .unwrap_or_default()
     }
 
     pub fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
-        self.query_dictionary_value("metas",meta_key(&token_id).as_str())
+        self.query_dictionary_value("metas", meta_key(&token_id).as_str())
     }
 
     pub fn token_uref(&self, token_id: &TokenId) -> Option<URef> {

@@ -457,7 +457,7 @@ pub extern "C" fn transfer_all_tokens() {
 
 #[no_mangle]
 pub extern "C" fn init_dicts() {
-    let dict_name_list = vec!["metas","owner","tokens","balance"];
+    let dict_name_list = vec!["metas", "owner", "tokens", "balance"];
     for dict_name in dict_name_list {
         storage::new_dictionary(dict_name).unwrap_or_revert();
     }
@@ -484,12 +484,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     entry_points.add_entry_point(endpoint("meta", vec![], Meta::cl_type(), None));
     entry_points.add_entry_point(endpoint("total_supply", vec![], CLType::U256, None));
     entry_points.add_entry_point(endpoint("is_paused", vec![], CLType::Bool, None));
-    entry_points.add_entry_point(endpoint(
-        "init_dicts",
-        vec![],
-        CLType::Bool,
-        None,
-    ));
+    entry_points.add_entry_point(endpoint("init_dicts", vec![], CLType::Bool, None));
     entry_points.add_entry_point(endpoint(
         "pause",
         vec![],
@@ -646,16 +641,11 @@ pub fn deploy(
         format!("{}_contract_hash", token_name).as_str(),
         contract_hash_pack.into(),
     );
-    
-    call_versioned_contract::<()>(
-        contract_package_hash,
-        None,
-        "init_dicts",
-        runtime_args! {},
-    );
+
+    call_versioned_contract::<()>(contract_package_hash, None, "init_dicts", runtime_args! {});
 }
 
-fn get_dict_uref(dict_name: &str)->URef{
+fn get_dict_uref(dict_name: &str) -> URef {
     let dict_key: Key = runtime::get_key(dict_name).unwrap_or_revert();
     let dict_uref: &URef = dict_key.as_uref().unwrap_or_revert();
     *dict_uref

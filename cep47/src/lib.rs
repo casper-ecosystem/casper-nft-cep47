@@ -421,7 +421,7 @@ pub extern "C" fn transfer_all_tokens() {
 #[no_mangle]
 pub extern "C" fn update_token_metadata() {
     let token_id: TokenId = runtime::get_named_arg("token_id");
-    let meta: Meta = runtime::get_named_arg("meta");
+    let meta: Meta = runtime::get_named_arg("token_meta");
     let mut contract = CasperCEP47Contract::new();
     let res = contract.update_token_metadata(token_id, meta);
     res.unwrap_or_revert();

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
     account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, PublicKey, RuntimeArgs,
-    SecretKey, URef, U256, U512,
+    SecretKey, U256, U512,
 };
 
 pub mod token_cfg {
@@ -134,16 +134,13 @@ impl CasperCEP47Contract {
         self.query_contract(meta_key(&token_id).as_str())
     }
 
-    pub fn token_uref(&self, token_id: &TokenId) -> Option<URef> {
-        self.query_contract(test_uref_key(&token_id).as_str())
-    }
-
-    pub fn mint_one(&mut self, recipient: PublicKey, token_meta: Meta, sender: Sender) {
+    pub fn mint_one(&mut self, recipient: PublicKey, token_id: Option<TokenId>, token_meta: Meta, sender: Sender) {
         self.call(
             sender,
             "mint_one",
             runtime_args! {
                 "recipient" => recipient,
+                "token_id" => token_id,
                 "token_meta" => token_meta
             },
         );
@@ -152,8 +149,9 @@ impl CasperCEP47Contract {
     pub fn mint_copies(
         &mut self,
         recipient: PublicKey,
+        token_ids: Option<Vec<TokenId>>,
         token_meta: Meta,
-        count: U256,
+        count: u32,
         sender: Sender,
     ) {
         self.call(
@@ -161,18 +159,20 @@ impl CasperCEP47Contract {
             "mint_copies",
             runtime_args! {
                 "recipient" => recipient,
+                "token_ids" => token_ids,
                 "token_meta" => token_meta,
                 "count" => count
             },
         );
     }
 
-    pub fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>, sender: Sender) {
+    pub fn mint_many(&mut self, recipient: PublicKey, token_ids: Option<Vec<TokenId>>, token_metas: Vec<Meta>, sender: Sender) {
         self.call(
             sender,
             "mint_many",
             runtime_args! {
                 "recipient" => recipient,
+                "token_ids" => token_ids,
                 "token_metas" => token_metas
             },
         );
@@ -246,6 +246,18 @@ impl CasperCEP47Contract {
             },
         );
     }
+    
+    pub fn update_token_metadata(&mut self, token_id: TokenId, meta: Meta, sender: Sender) {
+        self.call(
+            sender,
+            "update_token_metadata",
+            runtime_args! {
+                "token_id" => token_id,
+                "meta" => meta
+            },
+        );
+    }
+    
 }
 
 fn balance_key(account: &AccountHash) -> String {
@@ -262,8 +274,4 @@ fn meta_key(token_id: &TokenId) -> String {
 
 fn token_key(account: &AccountHash) -> String {
     format!("tokens_{}", account)
-}
-
-fn test_uref_key(token_id: &TokenId) -> String {
-    format!("turef_{}", token_id)
 }

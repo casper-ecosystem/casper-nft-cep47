@@ -2,7 +2,7 @@ use casper_types::AccessRights;
 use rand::Rng;
 
 use crate::{
-    AsymmetricType, CEP47Contract, CEP47Storage, Meta, PublicKey, TokenId, URef, WithStorage, U256,
+    AsymmetricType, CEP47Contract, CEP47Storage, Meta, PublicKey, TokenId, URef, WithStorage, U256, Error
 };
 use std::{
     collections::{hash_map::DefaultHasher, BTreeMap},
@@ -21,6 +21,7 @@ struct TestStorage {
     balances: BTreeMap<PublicKey, U256>,
     belongs_to: BTreeMap<TokenId, PublicKey>,
     urefs: BTreeMap<URef, TokenId>,
+    token_id_generator: u32
 }
 
 impl TestStorage {
@@ -36,6 +37,7 @@ impl TestStorage {
             belongs_to: BTreeMap::new(),
             token_metas: BTreeMap::new(),
             urefs: BTreeMap::new(),
+            token_id_generator: 1
         }
     }
 }
@@ -62,8 +64,8 @@ impl CEP47Storage for TestStorage {
         }
     }
 
-    fn onwer_of(&self, token_id: TokenId) -> Option<PublicKey> {
-        let owner = self.belongs_to.get(&token_id);
+    fn onwer_of(&self, token_id: &TokenId) -> Option<PublicKey> {
+        let owner = self.belongs_to.get(token_id);
         if owner.is_some() {
             Some(owner.unwrap().clone())
         } else {
@@ -120,7 +122,7 @@ impl CEP47Storage for TestStorage {
         self.balances.insert(owner, owner_new_balance);
     }
 
-    fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>) {
+    fn mint_many(&mut self, recipient: PublicKey, token_ids: Vec<TokenId>, token_metas: Vec<Meta>) {
         let recipient_balance = self.balances.get(&recipient);
         let recipient_tokens = self.tokens.get(&recipient);
         let mut recipient_new_balance = if recipient_balance.is_none() {
@@ -134,26 +136,16 @@ impl CEP47Storage for TestStorage {
             recipient_tokens.unwrap().clone()
         };
 
-        let mut hasher = DefaultHasher::new();
-
-        for token_meta in token_metas.clone() {
-            let token_info = (self.meta.clone(), token_meta.clone(), self.total_supply());
-            Hash::hash(&token_info, &mut hasher);
-            let token_id: TokenId = TokenId::from(hasher.finish().to_string());
+        for (token_id, token_meta) in token_ids.iter().zip(token_metas) {
             self.token_metas.insert(token_id.clone(), token_meta);
             recipient_new_tokens.push(token_id.clone());
-            self.belongs_to.insert(token_id, recipient.clone());
+            self.belongs_to.insert(token_id.clone(), recipient.clone());
             recipient_new_balance = recipient_new_balance + 1;
             self.total_supply = self.total_supply + 1;
         }
         self.balances
             .insert(recipient.clone(), recipient_new_balance);
         self.tokens.insert(recipient, recipient_new_tokens);
-    }
-
-    fn mint_copies(&mut self, recipient: PublicKey, token_meta: Meta, count: U256) {
-        let token_metas: Vec<Meta> = vec![token_meta; count.as_usize()];
-        self.mint_many(recipient, token_metas);
     }
 
     fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
@@ -208,6 +200,29 @@ impl CEP47Storage for TestStorage {
         self.total_supply = self.total_supply - 1;
         self.balances.insert(owner.clone(), owner_new_balance - 1);
         self.tokens.insert(owner, owner_new_tokens);
+    }
+
+    fn update_token_metadata(&mut self, token_id: TokenId, meta: Meta) {
+        self.token_metas.insert(token_id, meta).unwrap();
+    }
+
+    fn gen_token_ids(&mut self, n: u32) -> Vec<TokenId> {
+        let mut tokens = Vec::new();
+        for _ in 0..n {
+            let id = format!("token_{}", &self.token_id_generator);
+            tokens.push(id);
+            self.token_id_generator += 1;
+        };
+        tokens
+    }
+
+    fn validate_token_ids(&self, token_ids: &Vec<TokenId>) -> bool {
+        for token_id in token_ids {
+            if self.onwer_of(token_id).is_some() {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -282,10 +297,13 @@ fn test_mint_many() {
     let mut contract = TestContract::new();
     let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
     let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
+    let bob_first_token_id = "banana_01".to_string();
+    let bob_second_token_id = "orange_02".to_string();
+    let bob_token_ids = vec![bob_first_token_id.clone(), bob_second_token_id];
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_many(ali.clone(), vec![meta::apple()]);
-    contract.mint_many(bob.clone(), vec![meta::banana(), meta::orange()]);
+    let _: Result<(), Error> = contract.mint_many(ali.clone(), None, vec![meta::apple()]);
+    let _: Result<(), Error> = contract.mint_many(bob.clone(), Some(bob_token_ids.clone()), vec![meta::banana(), meta::orange()]);
     assert_eq!(contract.total_supply(), U256::from(3));
 
     let ali_balance = contract.balance_of(ali.clone());
@@ -300,10 +318,11 @@ fn test_mint_many() {
     assert_eq!(ali_first_token_meta, meta::apple());
 
     let bob_tokens: Vec<TokenId> = contract.tokens(bob);
+    assert_eq!(bob_token_ids, bob_tokens);
     let bob_first_token_meta: Meta = contract
-        .token_meta(bob_tokens.get(1).unwrap().clone())
+        .token_meta(bob_first_token_id)
         .unwrap();
-    assert_eq!(bob_first_token_meta, meta::orange());
+    assert_eq!(bob_first_token_meta, meta::banana());
 }
 #[test]
 fn test_mint_copies() {
@@ -311,7 +330,7 @@ fn test_mint_copies() {
     let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_copies(ali.clone(), meta::apple(), U256::from(7));
+    let _: Result<(), Error> = contract.mint_copies(ali.clone(), None, meta::apple(), 7);
     assert_eq!(contract.total_supply(), U256::from(7));
 
     let ali_balance = contract.balance_of(ali.clone());
@@ -333,8 +352,9 @@ fn test_burn_many() {
     let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
     assert_eq!(contract.total_supply(), U256::from(0));
 
-    contract.mint_many(
+    let _: Result<(), Error> = contract.mint_many(
         ali.clone(),
+        None,
         vec![meta::banana(), meta::orange(), meta::apple()],
     );
     assert_eq!(contract.total_supply(), U256::from(3));
@@ -364,7 +384,7 @@ fn test_burn_one() {
     let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_many(ali.clone(), vec![meta::banana(), meta::orange()]);
+    let _: Result<(), Error> = contract.mint_many(ali.clone(), None, vec![meta::banana(), meta::orange()]);
     assert_eq!(contract.total_supply(), U256::from(2));
 
     let mut ali_balance = contract.balance_of(ali.clone());
@@ -390,7 +410,7 @@ fn test_transfer_token() {
     let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_one(ali.clone(), meta::apple());
+    let _: Result<(), Error> = contract.mint_one(ali.clone(), None, meta::apple());
     assert_eq!(contract.total_supply(), U256::from(1));
 
     let mut ali_balance = contract.balance_of(ali.clone());
@@ -411,7 +431,7 @@ fn test_transfer_token() {
     assert_eq!(ali_balance, U256::from(0));
     assert_eq!(bob_balance, U256::from(1));
 
-    let owner_of_first_token_id = contract.owner_of(ali_first_token_id);
+    let owner_of_first_token_id = contract.owner_of(&ali_first_token_id);
     assert_eq!(owner_of_first_token_id.unwrap(), bob);
 }
 #[test]
@@ -421,8 +441,8 @@ fn test_transfer_all_tokens() {
     let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_many(ali.clone(), vec![meta::apple(), meta::banana()]);
-    contract.mint_one(ali.clone(), meta::apple());
+    let _: Result<(), Error> = contract.mint_many(ali.clone(), None, vec![meta::apple(), meta::banana()]);
+    let _: Result<(), Error> = contract.mint_one(ali.clone(), None, meta::apple());
     assert_eq!(contract.total_supply(), U256::from(3));
 
     let mut ali_balance = contract.balance_of(ali.clone());
@@ -443,7 +463,7 @@ fn test_transfer_all_tokens() {
     assert_eq!(ali_balance, U256::from(0));
     assert_eq!(bob_balance, U256::from(3));
 
-    let owner_of_second_token_id = contract.owner_of(ali_second_token_id);
+    let owner_of_second_token_id = contract.owner_of(&ali_second_token_id);
     assert_eq!(owner_of_second_token_id.unwrap(), bob);
 }
 
@@ -454,8 +474,8 @@ fn test_transfer_many_tokens() {
     let bob = PublicKey::ed25519_from_bytes([6u8; 32]).unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(0));
-    contract.mint_many(ali.clone(), vec![meta::apple(), meta::banana()]);
-    contract.mint_copies(ali.clone(), meta::apple(), U256::from(3));
+    let _ = contract.mint_many(ali.clone(), None, vec![meta::apple(), meta::banana()]);
+    let _: Result<(), Error> = contract.mint_copies(ali.clone(), None, meta::apple(), 3);
     assert_eq!(contract.total_supply(), U256::from(5));
 
     assert_eq!(contract.balance_of(ali.clone()), U256::from(5));
@@ -478,8 +498,19 @@ fn test_transfer_many_tokens() {
     assert_eq!(contract.balance_of(ali), U256::from(3));
     assert_eq!(contract.balance_of(bob.clone()), U256::from(2));
 
-    let owner_of_second_token_id = contract.owner_of(ali_second_token_id);
-    let owner_of_third_token_id = contract.owner_of(ali_third_token_id);
+    let owner_of_second_token_id = contract.owner_of(&ali_second_token_id);
+    let owner_of_third_token_id = contract.owner_of(&ali_third_token_id);
     assert_eq!(owner_of_second_token_id.unwrap(), bob);
     assert_eq!(owner_of_third_token_id.unwrap(), bob);
+}
+
+#[test]
+fn test_update_metadata() {
+    let mut contract = TestContract::new();
+    let ali = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
+    let token_id = TokenId::from("new_token");
+    let _: Result<(), Error> = contract.mint_one(ali, Some(token_id.clone()), meta::apple());
+    assert_eq!(meta::apple(), contract.token_meta(token_id.clone()).unwrap());
+    let _: Result<(), Error> = contract.update_token_metadata(token_id.clone(), meta::banana());
+    assert_eq!(meta::banana(), contract.token_meta(token_id).unwrap());
 }

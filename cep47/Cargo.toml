@@ -5,6 +5,7 @@ authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+hex = "0.4.3"
 casper-contract = "1.2.1"
 casper-types = "1.2.1"
 cep47-logic = { path = "../cep47-logic" }
@@ -33,3 +34,4 @@ no_burn_one = []
 no_transfer_token = []
 no_transfer_many_tokens = []
 no_transfer_all_tokens = []
+no_update_token_metadata = []

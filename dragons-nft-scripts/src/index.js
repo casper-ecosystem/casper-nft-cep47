@@ -23,10 +23,11 @@ const KEYS = Keys.Ed25519.parseKeyFiles(
     `${KEY_PAIR_PATH}/public_key.pem`,
     `${KEY_PAIR_PATH}/secret_key.pem`
 );
-const MINT_ONE_META_SIZE = 4;
+const MINT_ONE_META_SIZE = 1;
 const MINT_COPIES_META_SIZE = 10;
-const MINT_MANY_META_SIZE = 10;
-const MINT_COPIES_COUNT = 5;
+const MINT_COPIES_COUNT = 20;
+const MINT_MANY_META_SIZE = 5;
+const MINT_MANY_META_COUNT = 5;
 const CONTRACT_HASH = '6f833eb30447e7bad2e77d7a34b1b1d3870dd1d4a38823da2a84219a05733ced';
 
 const cep47 = new CEP47Client(NODE_ADDRESS, CHAIN_NAME, EVENT_STREAM_ADDRESS);
@@ -41,7 +42,7 @@ const install = async () => {
 const mintOne = async () => {
     const cep47 = new CEP47Client(NODE_ADDRESS, CHAIN_NAME, EVENT_STREAM_ADDRESS);
     await cep47.setContractHash(CONTRACT_HASH);
-    let meta = new Map([['name1', 'Medha'], ['name2', 'Maciej'], ['name3', 'Jan']]);
+    let meta = randomMetaMap(MINT_ONE_META_SIZE);
     const deployHash = await cep47.mintOne(KEYS, KEYS.publicKey, meta, MINT_ONE_PAYMENT_AMOUNT);
     console.log(`Mint One`);
     console.log(`... DeployHash: ${deployHash}`);
@@ -171,12 +172,23 @@ const randomMetaMap = (size) => {
         data.set(`key${i}`, `value${i}`);
     }
     return data;
+
+    // return new Map([
+    //     ["patentId", "EP-3420697-B1-AL"],
+    //     ["applicationId", "EP17707409.3"],
+    //     ["owner", "nChain Holdings Ltd"],
+    //     ["ownerStatus", "verified"],
+    //     ["familyId", "55753050"],
+    //     ["ipweFamilyRating", "AAA"],
+    //     ["insurancePolicyId", "123"],
+    //     ["anticipatedExpirationDate", "2037-02-14"]
+    // ]);
 }
 
 const randomMetaArray = (size) => {
     let arr = []; 
     for (let i = 0; i < size; i++) {
-      const item = randomMetaMap(3);
+      const item = randomMetaMap(MINT_MANY_META_COUNT);
     }
     return arr;
 }

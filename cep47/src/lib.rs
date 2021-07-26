@@ -36,6 +36,7 @@ impl CasperCEP47Storage {
         CasperCEP47Storage {}
     }
 }
+
 impl CEP47Storage for CasperCEP47Storage {
     // Metadata.
     fn name(&self) -> String {
@@ -60,8 +61,8 @@ impl CEP47Storage for CasperCEP47Storage {
         }
     }
 
-    fn onwer_of(&self, token_id: TokenId) -> Option<PublicKey> {
-        get_key::<PublicKey>(&owner_key(&token_id))
+    fn onwer_of(&self, token_id: &TokenId) -> Option<PublicKey> {
+        get_key::<PublicKey>(&owner_key(token_id))
     }
 
     fn total_supply(&self) -> U256 {
@@ -114,25 +115,13 @@ impl CEP47Storage for CasperCEP47Storage {
         );
     }
 
-    fn mint_many(&mut self, recipient: PublicKey, token_metas: Vec<Meta>) {
+    fn mint_many(&mut self, recipient: PublicKey, token_ids: Vec<TokenId>, token_metas: Vec<Meta>) {
         let mut recipient_tokens = self.get_tokens(recipient.clone());
         let mut recipient_balance = self.balance_of(recipient.clone());
         let mut total_supply = self.total_supply();
-        let meta = self.meta();
 
-        let mut hasher = DefaultHasher::new();
-        let mut nonce: u64 = get_event_nonce();
-        let block_hash: u64 = runtime::get_blocktime().into();
-
-        for token_meta in token_metas.clone() {
-            // Derive new unique token id.
-            let token_info = (block_hash, nonce, meta.clone());
-            Hash::hash(&token_info, &mut hasher);
-            let token_id = TokenId::from(hasher.finish().to_string());
-            nonce = nonce + 1;
-
+        for (token_id, token_meta) in token_ids.iter().zip(token_metas) {
             recipient_tokens.push(token_id.clone());
-            total_supply = total_supply + 1;
             set_key(&meta_key(&token_id), token_meta);
             set_key(&owner_key(&token_id), recipient.clone());
 
@@ -140,21 +129,16 @@ impl CEP47Storage for CasperCEP47Storage {
             emit_mint_one_event(&recipient, &token_id);
         }
 
-        // Update nonce.
-        set_event_nonce(nonce);
+        set_key(&token_key(&recipient.to_account_hash()), recipient_tokens);
 
-        recipient_balance = recipient_balance + U256::from(token_metas.len() as u64);
+        let new_tokens_count = U256::from(token_ids.len() as u32); 
+        recipient_balance = recipient_balance + new_tokens_count;
         set_key(
             &balance_key(&recipient.to_account_hash()),
             recipient_balance,
         );
-        set_key(&token_key(&recipient.to_account_hash()), recipient_tokens);
+        total_supply = total_supply + new_tokens_count;
         set_key("total_supply", total_supply);
-    }
-
-    fn mint_copies(&mut self, recipient: PublicKey, token_meta: Meta, count: U256) {
-        let token_metas: Vec<Meta> = vec![token_meta; count.as_usize()];
-        self.mint_many(recipient, token_metas);
     }
 
     fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
@@ -195,6 +179,33 @@ impl CEP47Storage for CasperCEP47Storage {
         set_key(&token_key(&owner.to_account_hash()), owner_tokens);
         set_key("total_supply", total_supply - 1);
         emit_burn_one_event(&owner, &token_id);
+    }
+
+    fn update_token_metadata(&mut self, token_id: TokenId, meta: Meta) {
+        set_key(&meta_key(&token_id), meta);
+    }
+
+    fn gen_token_ids(&mut self, n: u32) -> Vec<TokenId> {
+        let block_time = runtime::get_blocktime();
+        let mut token_ids = Vec::new();
+        let nonce = get_nonce();
+        for i in nonce..nonce + n {
+            let mut bytes: Vec<u8> = block_time.to_bytes().unwrap_or_revert();
+            bytes.append(&mut i.to_bytes().unwrap_or_revert());            
+            let hash = runtime::blake2b(bytes);
+            token_ids.push(hex::encode(hash));
+        };
+        set_nonce(nonce+n);
+        token_ids
+    }
+
+    fn validate_token_ids(&self, token_ids: &Vec<TokenId>) -> bool {
+       for token_id in token_ids {
+           if self.onwer_of(token_id).is_some() {
+               return false;
+           }
+       }
+       true
     }
 }
 
@@ -306,28 +317,31 @@ pub extern "C" fn unpause() {
 #[no_mangle]
 pub extern "C" fn mint_one() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let token_id: Option<TokenId> = runtime::get_named_arg("token_id");
     let token_meta: Meta = runtime::get_named_arg("token_meta");
     let mut contract = CasperCEP47Contract::new();
-    contract.mint_one(recipient, token_meta);
+    contract.mint_one(recipient, token_id, token_meta).unwrap_or_revert();
 }
 
 #[cfg(not(feature = "no_mint_many"))]
 #[no_mangle]
 pub extern "C" fn mint_many() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let token_ids: Option<Vec<TokenId>> = runtime::get_named_arg("token_ids");
     let token_metas: Vec<Meta> = runtime::get_named_arg("token_metas");
     let mut contract = CasperCEP47Contract::new();
-    contract.mint_many(recipient, token_metas);
+    contract.mint_many(recipient, token_ids, token_metas).unwrap_or_revert();
 }
 
 #[cfg(not(feature = "no_mint_copies"))]
 #[no_mangle]
 pub extern "C" fn mint_copies() {
     let recipient: PublicKey = runtime::get_named_arg("recipient");
+    let token_ids: Option<Vec<TokenId>> = runtime::get_named_arg("token_ids");
     let token_meta: Meta = runtime::get_named_arg("token_meta");
-    let count: U256 = runtime::get_named_arg("count");
+    let count: u32 = runtime::get_named_arg("count");
     let mut contract = CasperCEP47Contract::new();
-    contract.mint_copies(recipient, token_meta, count);
+    contract.mint_copies(recipient, token_ids, token_meta, count).unwrap_or_revert();
 }
 
 #[cfg(not(feature = "no_burn_many"))]
@@ -403,6 +417,16 @@ pub extern "C" fn transfer_all_tokens() {
     res.unwrap_or_revert();
 }
 
+#[cfg(not(feature = "no_update_token_metadata"))]
+#[no_mangle]
+pub extern "C" fn update_token_metadata() {
+    let token_id: TokenId = runtime::get_named_arg("token_id");
+    let meta: Meta = runtime::get_named_arg("meta");
+    let mut contract = CasperCEP47Contract::new();
+    let res = contract.update_token_metadata(token_id, meta);
+    res.unwrap_or_revert();
+}
+
 pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints {
     let secure = if let Some(contract_package_hash) = package_hash {
         let deployer_group = storage::create_contract_user_group(
@@ -452,13 +476,13 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
     ));
     entry_points.add_entry_point(endpoint(
         "owner_of",
-        vec![Parameter::new("token_id", CLType::String)],
+        vec![Parameter::new("token_id", TokenId::cl_type())],
         CLType::Option(Box::new(CLType::PublicKey)),
         None,
     ));
     entry_points.add_entry_point(endpoint(
         "token_meta",
-        vec![Parameter::new("token_id", CLType::String)],
+        vec![Parameter::new("token_id", TokenId::cl_type())],
         CLType::Option(Box::new(CLType::String)),
         None,
     ));
@@ -478,6 +502,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_one",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("token_ids", CLType::Option(Box::new(TokenId::cl_type()))),
             Parameter::new("token_meta", Meta::cl_type()), 
         ],
         CLType::Unit,
@@ -491,6 +516,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_many",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("token_ids", CLType::Option(Box::new(CLType::List(Box::new(TokenId::cl_type()))))),
             Parameter::new("token_metas", CLType::List(Box::new(Meta::cl_type()))),
         ],
         CLType::Unit,
@@ -504,8 +530,22 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "mint_copies",
         vec![
             Parameter::new("recipient", CLType::PublicKey),
+            Parameter::new("token_ids", CLType::Option(Box::new(CLType::List(Box::new(TokenId::cl_type()))))),
             Parameter::new("token_meta", Meta::cl_type()),
-            Parameter::new("count", CLType::U256),
+            Parameter::new("count", CLType::U32),
+        ],
+        CLType::Unit,
+        if secure {
+            Some("deployer")
+        } else {
+            None
+        },
+    ));
+    entry_points.add_entry_point(endpoint(
+        "update_token_metadata",
+        vec![
+            Parameter::new("token_id", TokenId::cl_type()),
+            Parameter::new("meta", Meta::cl_type()),
         ],
         CLType::Unit,
         if secure {
@@ -518,7 +558,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "burn_one",
         vec![
             Parameter::new("owner", CLType::PublicKey),
-            Parameter::new("token_id", CLType::String),
+            Parameter::new("token_id", TokenId::cl_type()),
         ],
         CLType::Unit,
         if secure {
@@ -531,7 +571,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         "burn_many",
         vec![
             Parameter::new("owner", CLType::PublicKey),
-            Parameter::new("token_ids", CLType::List(Box::new(CLType::String))),
+            Parameter::new("token_ids", CLType::List(Box::new(TokenId::cl_type()))),
         ],
         CLType::Unit,
         if secure {
@@ -545,7 +585,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         vec![
             Parameter::new("sender", CLType::PublicKey),
             Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_id", CLType::String),
+            Parameter::new("token_id", TokenId::cl_type()),
         ],
         CLType::Unit,
         None,
@@ -555,7 +595,7 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         vec![
             Parameter::new("sender", CLType::PublicKey),
             Parameter::new("recipient", CLType::PublicKey),
-            Parameter::new("token_ids", CLType::List(Box::new(CLType::String))),
+            Parameter::new("token_ids", CLType::List(Box::new(TokenId::cl_type()))),
         ],
         CLType::Unit,
         None,
@@ -727,10 +767,10 @@ pub fn package_hash() -> ContractPackageHash {
     key.into()
 }
 
-fn get_event_nonce() -> u64 {
-    get_key("event_nonce").unwrap_or_default()
+fn get_nonce() -> u32 {
+    get_key("nonce").unwrap_or_default()
 }
 
-fn set_event_nonce(nonce: u64) {
-    set_key("event_nonce", nonce);
+fn set_nonce(nonce: u32) {
+    set_key("nonce", nonce);
 }

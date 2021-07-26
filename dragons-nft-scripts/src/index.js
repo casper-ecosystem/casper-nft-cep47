@@ -1,24 +1,25 @@
-const { CLValueBuilder, Keys, CLPublicKey } = require("casper-js-sdk");
+const { CLValueBuilder, Keys, CLPublicKey, CLPublicKeyType } = require("casper-js-sdk");
 const { CEP47Client, utils, constants } = require("casper-cep47-js-client");
 
-const NODE_ADDRESS = 'http://3.143.158.19:7777/rpc';
-// const NODE_ADDRESS = 'http://localhost:40101/rpc';
-const EVENT_STREAM_ADDRESS = 'http://3.143.158.19:9999/events';
+// const NODE_ADDRESS = 'http://3.143.158.19:7777/rpc';
+const NODE_ADDRESS = 'http://localhost:40101/rpc';
+// const EVENT_STREAM_ADDRESS = 'http://3.143.158.19:9999/events';
+const EVENT_STREAM_ADDRESS = 'http://localhost:60101/events';
 const INSTALL_PAYMENT_AMOUNT = '200000000000';
 const MINT_ONE_PAYMENT_AMOUNT = '2000000000';
 const MINT_COPIES_PAYMENT_AMOUNT = '100000000000';
 const BURN_ONE_PAYMENT_AMOUNT = '12000000000';
-const CHAIN_NAME = 'integration-test';
-// const CHAIN_NAME = 'casper-net-1';
+// const CHAIN_NAME = 'integration-test';
+const CHAIN_NAME = 'casper-net-1';
 const WASM_PATH = "./../target/wasm32-unknown-unknown/release/dragons-nft.wasm";
-const TOKEN_NAME = 'event_nft_3';
+const TOKEN_NAME = 'event_nft_4';
 const TOKEN_SYMBOL = 'DRAG';
 const TOKEN_META = new Map([
     ['origin', 'fire'], 
     ['lifetime', 'infinite']
 ]);
-const KEY_PAIR_PATH = '/home/ziel/workspace/casperlabs/integration-key/master';
-// const KEY_PAIR_PATH = '/Users/janhoffmann/casper-node/utils/nctl/assets/net-1/faucet';
+// const KEY_PAIR_PATH = '/home/ziel/workspace/casperlabs/integration-key/master';
+const KEY_PAIR_PATH = '/Users/janhoffmann/casper-node/utils/nctl/assets/net-1/faucet';
 const KEYS = Keys.Ed25519.parseKeyFiles(
     `${KEY_PAIR_PATH}/public_key.pem`,
     `${KEY_PAIR_PATH}/secret_key.pem`
@@ -28,7 +29,7 @@ const MINT_COPIES_META_SIZE = 10;
 const MINT_COPIES_COUNT = 20;
 const MINT_MANY_META_SIZE = 5;
 const MINT_MANY_META_COUNT = 5;
-const CONTRACT_HASH = '6f833eb30447e7bad2e77d7a34b1b1d3870dd1d4a38823da2a84219a05733ced';
+const CONTRACT_HASH = '6c0d0919acbcbe02665eb4cb32b856fd2ce5359432c0af43818d538c17de96a8';
 
 const cep47 = new CEP47Client(NODE_ADDRESS, CHAIN_NAME, EVENT_STREAM_ADDRESS);
 
@@ -43,7 +44,7 @@ const mintOne = async () => {
     const cep47 = new CEP47Client(NODE_ADDRESS, CHAIN_NAME, EVENT_STREAM_ADDRESS);
     await cep47.setContractHash(CONTRACT_HASH);
     let meta = randomMetaMap(MINT_ONE_META_SIZE);
-    const deployHash = await cep47.mintOne(KEYS, KEYS.publicKey, meta, MINT_ONE_PAYMENT_AMOUNT);
+    const deployHash = await cep47.mintOne(KEYS, KEYS.publicKey, "ABC123", meta, MINT_ONE_PAYMENT_AMOUNT);
     console.log(`Mint One`);
     console.log(`... DeployHash: ${deployHash}`);
 }
@@ -67,8 +68,12 @@ const mintCopies = async () => {
 const mintMany = async () => {
     await cep47.setContractHash(CONTRACT_HASH);
     let meta = randomMetaArray(MINT_MANY_META_SIZE);
+    let arr = [];
+    for (let i = 0; i < meta.length; i++) {
+      arr.push(`a${i}`);
+    }
     const deployHash = await cep47.mintMany(
-        KEYS, KEYS.publicKey, meta, MINT_COPIES_PAYMENT_AMOUNT);
+        KEYS, KEYS.publicKey, meta, arr, MINT_COPIES_PAYMENT_AMOUNT);
     console.log(`Mint Many`);
     console.log(`... DeployHash: ${deployHash}`);
 }
@@ -107,6 +112,12 @@ const tokenMeta = async (tokenId) => {
     await cep47.setContractHash(CONTRACT_HASH);
     const value = await cep47.getTokenMeta(tokenId);
     console.log('Token meta', value);
+}
+
+const updateTokenMetadata = async (tokenId) => {
+    await cep47.setContractHash(CONTRACT_HASH);
+    const value = await cep47.updateTokenMetadata(KEYS, tokenId, new Map([['name', 'me']]), BURN_ONE_PAYMENT_AMOUNT);
+    console.log('Deploy hash', value);
 }
 
 const printAccount = async () => {
@@ -189,6 +200,7 @@ const randomMetaArray = (size) => {
     let arr = []; 
     for (let i = 0; i < size; i++) {
       const item = randomMetaMap(MINT_MANY_META_COUNT);
+      arr.push(item);
     }
     return arr;
 }
@@ -238,6 +250,9 @@ switch (command) {
         break;
     case 'tokens_of':
         tokensOf(arg1);
+        break;
+    case 'update_token_metadata':
+        updateTokenMetadata(arg1);
         break;
     case 'pause':
         pause();

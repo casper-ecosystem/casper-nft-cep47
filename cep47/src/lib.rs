@@ -266,7 +266,7 @@ pub extern "C" fn balance_of() {
 pub extern "C" fn owner_of() {
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let contract = CasperCEP47Contract::new();
-    ret(contract.owner_of(token_id))
+    ret(contract.owner_of(&token_id))
 }
 
 #[cfg(not(feature = "no_total_supply"))]

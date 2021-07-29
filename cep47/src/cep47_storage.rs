@@ -100,9 +100,6 @@ impl CEP47Storage for CasperCEP47Storage {
 
             // Update current list of recipient's tokens.
             recipient_tokens.push(token_id.clone());
-
-            // Emit event.
-            // emit_mint_one_event(&recipient, &token_id);
         }
 
         // Update owned tokens.
@@ -121,10 +118,10 @@ impl CEP47Storage for CasperCEP47Storage {
 
     fn burn_many(&mut self, owner: &Key, token_ids: &Vec<TokenId>) {
         // Prepare dictionaries.
-        // let owners_dict = Owners::instance();
+        let owners_dict = Owners::instance();
         let owned_tokens_dict = OwnedTokens::instance();
         let balances_dict = Balances::instance();
-        // let metadata_dict = Metadata::instance();
+        let metadata_dict = Metadata::instance();
 
         // Load owner's tokens.
         let mut owner_tokens = owned_tokens_dict.get(owner);
@@ -140,11 +137,10 @@ impl CEP47Storage for CasperCEP47Storage {
             owner_tokens.remove(index);
 
             // TODO: Remove meta.
-
+            metadata_dict.remove(&token_id);
+            
             // TODO: Remove ownership.
-
-            // Emit event.
-            // emit_burn_one_event(&owner, &token_id);
+            owners_dict.remove(&token_id);
         }
 
         // Decrement owner's balance.

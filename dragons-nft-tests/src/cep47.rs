@@ -116,10 +116,10 @@ impl CasperCEP47Contract {
         ) {
             Err(_) => None,
             Ok(maybe_value) => {
-                let value = maybe_value
+                let value: Option<T> = maybe_value
                     .into_t()
                     .unwrap_or_else(|_| panic!("is not expected type."));
-                Some(value)
+                value
             }
         }
     }
@@ -297,20 +297,4 @@ impl CasperCEP47Contract {
             },
         );
     }
-}
-
-fn balance_key(account: &AccountHash) -> String {
-    format!("balances_{}", account)
-}
-
-fn owner_key(token_id: &TokenId) -> String {
-    format!("owners_{}", token_id)
-}
-
-fn meta_key(token_id: &TokenId) -> String {
-    format!("metas_{}", token_id)
-}
-
-fn token_key(account: &AccountHash) -> String {
-    format!("tokens_{}", account)
 }

@@ -31,12 +31,19 @@ impl Dict {
     }
 
     pub fn get<T: CLTyped + FromBytes>(&self, key: &str) -> Option<T> {
-        storage::dictionary_get(self.uref, key).unwrap_or_revert()
+        storage::dictionary_get(self.uref, key)
+            .unwrap_or_revert()
+            .unwrap_or_default()
     }
 
     pub fn set<T: CLTyped + ToBytes>(&self, key: &str, value: T) {
-        storage::dictionary_put(self.uref, key, value);
+        storage::dictionary_put(self.uref, key, Some(value));
     }
+
+    pub fn remove<T: CLTyped + ToBytes>(&self, key: &str) {
+        storage::dictionary_put(self.uref, key, Option::<T>::None);
+    }
+
 }
 
 pub struct Balances {
@@ -51,11 +58,15 @@ impl Balances {
     }
 
     pub fn get(&self, key: &Key) -> U256 {
-        self.dict.get(&key_to_str(&key)).unwrap_or(U256::zero())
+        self.dict.get(&key_to_str(&key)).unwrap_or_default()
     }
 
     pub fn set(&self, key: &Key, value: U256) {
         self.dict.set(&key_to_str(&key), value);
+    }
+
+    pub fn remove(&self, key: &Key) {
+        self.dict.remove::<U256>(&key_to_str(&key));
     }
 }
 
@@ -77,6 +88,10 @@ impl OwnedTokens {
     pub fn set(&self, key: &Key, value: Vec<TokenId>) {
         self.dict.set(&key_to_str(&key), value);
     }
+
+    pub fn remove(&self, key: &Key) {
+        self.dict.remove::<TokenId>(&key_to_str(&key));
+    }
 }
 
 pub struct Owners {
@@ -97,7 +112,12 @@ impl Owners {
     pub fn set(&self, key: &TokenId, value: Key) {
         self.dict.set(key, value);
     }
+
+    pub fn remove(&self, key: &TokenId) {
+        self.dict.remove::<Key>(key);
+    }
 }
+
 pub struct Metadata {
     dict: Dict,
 }
@@ -115,6 +135,10 @@ impl Metadata {
 
     pub fn set(&self, key: &TokenId, value: Meta) {
         self.dict.set(key, value);
+    }
+
+    pub fn remove(&self, key: &TokenId) {
+        self.dict.remove::<Meta>(key);
     }
 }
 

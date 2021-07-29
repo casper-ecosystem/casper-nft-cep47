@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 hex = "0.4.3"
-casper-contract = "1.2.1"
-casper-types = "1.2.1"
+casper-contract = "1.3.1"
+casper-types = "1.3.1"
 cep47-logic = { path = "../cep47-logic" }
 
 [lib]

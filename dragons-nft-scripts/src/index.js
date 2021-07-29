@@ -11,15 +11,15 @@ const MINT_COPIES_PAYMENT_AMOUNT = '100000000000';
 const BURN_ONE_PAYMENT_AMOUNT = '12000000000';
 // const CHAIN_NAME = 'integration-test';
 const CHAIN_NAME = 'casper-net-1';
-const WASM_PATH = "./../target/wasm32-unknown-unknown/release/dragons-nft.wasm";
-const TOKEN_NAME = 'event_nft_4';
-const TOKEN_SYMBOL = 'DRAG';
+const WASM_PATH = "/home/ziel/workspace/casperlabs/ipwe-nft-contract/target/wasm32-unknown-unknown/release/ipwe-nft-contract.wasm";
+const TOKEN_NAME = 'test_nft';
+const TOKEN_SYMBOL = 'tnft';
 const TOKEN_META = new Map([
     ['origin', 'fire'], 
     ['lifetime', 'infinite']
 ]);
 // const KEY_PAIR_PATH = '/home/ziel/workspace/casperlabs/integration-key/master';
-const KEY_PAIR_PATH = '/Users/janhoffmann/casper-node/utils/nctl/assets/net-1/faucet';
+const KEY_PAIR_PATH = '/home/ziel/workspace/casperlabs/casper-node/utils/nctl/assets/net-1/faucet';
 const KEYS = Keys.Ed25519.parseKeyFiles(
     `${KEY_PAIR_PATH}/public_key.pem`,
     `${KEY_PAIR_PATH}/secret_key.pem`
@@ -29,7 +29,7 @@ const MINT_COPIES_META_SIZE = 10;
 const MINT_COPIES_COUNT = 20;
 const MINT_MANY_META_SIZE = 5;
 const MINT_MANY_META_COUNT = 5;
-const CONTRACT_HASH = '6c0d0919acbcbe02665eb4cb32b856fd2ce5359432c0af43818d538c17de96a8';
+const CONTRACT_HASH = '1f7112e5424d206be8b3c63774726347a03bd692327b4207148cb237b43ec5ea';
 
 const cep47 = new CEP47Client(NODE_ADDRESS, CHAIN_NAME, EVENT_STREAM_ADDRESS);
 
@@ -43,8 +43,8 @@ const install = async () => {
 const mintOne = async () => {
     const cep47 = new CEP47Client(NODE_ADDRESS, CHAIN_NAME, EVENT_STREAM_ADDRESS);
     await cep47.setContractHash(CONTRACT_HASH);
-    let meta = randomMetaMap(MINT_ONE_META_SIZE);
-    const deployHash = await cep47.mintOne(KEYS, KEYS.publicKey, "ABC123", meta, MINT_ONE_PAYMENT_AMOUNT);
+    let meta = randomMetaMap(4);
+    const deployHash = await cep47.mintOne(KEYS, KEYS.publicKey, "ABC123456", meta, MINT_ONE_PAYMENT_AMOUNT);
     console.log(`Mint One`);
     console.log(`... DeployHash: ${deployHash}`);
 }
@@ -91,10 +91,10 @@ const getName = async () => {
     console.log(`Contract Name: ${value}`);
 }
 
-const balanceOf = async () => {
+const balanceOf = async (publicKeyHex) => {
     await cep47.setContractHash(CONTRACT_HASH);
-    const balance = await cep47.balanceOf(CLPublicKey.fromHex("01694a09937e05f5a60b5f56d1d108f65ae716c45879fca79fca89ec1c20e15431"));
-    console.log(`Balance: ${balance.value()}`);
+    const balance = await cep47.balanceOf(CLPublicKey.fromHex(publicKeyHex));
+    console.log(`Balance: ${balance}`);
 }
 
 const tokensOf = async (publicKeyHex) => {
@@ -102,9 +102,22 @@ const tokensOf = async (publicKeyHex) => {
     const value = await cep47.getTokensOf(CLPublicKey.fromHex(publicKeyHex));
     console.log(`Tokens: ${JSON.stringify(value, null, 2)}`);
 }
+
 const ownerOf = async (tokenId) => {
     await cep47.setContractHash(CONTRACT_HASH);
     const value = await cep47.getOwnerOf(tokenId);
+    console.log(`Owner public key hex: ${value}`);
+}
+
+const totalSupply = async (tokenId) => {
+    await cep47.setContractHash(CONTRACT_HASH);
+    const value = await cep47.totalSupply();
+    console.log(`Total supply: ${value}`);
+}
+
+const meta = async () => {
+    await cep47.setContractHash(CONTRACT_HASH);
+    const value = await cep47.meta();
     console.log(`Owner public key hex: ${value}`);
 }
 
@@ -133,12 +146,15 @@ const getContractData = async () => {
 
 const transferToken = async () => {
   await cep47.setContractHash(CONTRACT_HASH);
-  await cep47.transferToken(
+  const deployHash = await cep47.transferToken(
     KEYS, 
     KEYS.publicKey, 
-    CLPublicKey.fromHex('017b4822b849f197acf4f49d91315887f913128a9673a2d7ea834cf13c2e6fc606'), '17873237509455618405', 
+    CLPublicKey.fromHex('017b4822b849f197acf4f49d91315887f913128a9673a2d7ea834cf13c2e6fc606'),
+    '52a9b6b34ec2cf6c1767b9c6678a23aeacaa9c17145c379525cce6ac2e649e1f', 
     MINT_ONE_PAYMENT_AMOUNT * 100
   );
+  console.log(`Transfer one`);
+  console.log(`... DeployHash: ${deployHash}`);
 }
 
 const transferAll = async () => {
@@ -237,10 +253,10 @@ switch (command) {
         burnOne(arg1);
         break;
     case 'total_supply':
-        getSimpleValue("totalSupply");
+        totalSupply();
         break;
     case 'balance_of':
-        balanceOf();
+        balanceOf(arg1);
         break;
     case 'owner_of':
         ownerOf(arg1);

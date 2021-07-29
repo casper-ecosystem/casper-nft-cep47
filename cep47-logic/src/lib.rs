@@ -3,14 +3,17 @@
 
 use std::collections::BTreeMap;
 
-use casper_types::{ApiError, AsymmetricType, PublicKey, URef, U256};
+use casper_types::{ApiError, AsymmetricType, ContractPackageHash, Key, URef, U256};
 
 #[cfg(test)]
 #[macro_use]
 extern crate maplit;
 
+pub mod events;
 #[cfg(test)]
 pub mod tests;
+
+use events::CEP47Event;
 
 pub type TokenId = String;
 pub type Meta = BTreeMap<String, String>;
@@ -49,11 +52,11 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
     }
 
     // Getters
-    fn balance_of(&self, owner: PublicKey) -> U256 {
+    fn balance_of(&self, owner: &Key) -> U256 {
         self.storage().balance_of(owner)
     }
 
-    fn owner_of(&self, token_id: &TokenId) -> Option<PublicKey> {
+    fn owner_of(&self, token_id: &TokenId) -> Option<Key> {
         self.storage().onwer_of(token_id)
     }
 
@@ -61,11 +64,11 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         self.storage().total_supply()
     }
 
-    fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
+    fn token_meta(&self, token_id: &TokenId) -> Option<Meta> {
         self.storage().token_meta(token_id)
     }
 
-    fn tokens(&self, owner: PublicKey) -> Vec<TokenId> {
+    fn tokens(&self, owner: &Key) -> Vec<TokenId> {
         self.storage().get_tokens(owner)
     }
 
@@ -83,52 +86,56 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
 
     // Minter function.
     // Guarded by the entrypoint group.
-    fn mint_one(&mut self, recipient: PublicKey, token_id: Option<TokenId>, token_meta: Meta) -> Result<(), Error> {
-        match token_id {
-            Some(token_id) => {
-                let valid = self.storage().validate_token_ids(&vec![token_id.clone()]);
-                if !valid {
-                    Err(Error::TokenIdAlreadyExists)
-                } else {
-                    self.storage_mut()
-                        .mint_many(recipient, vec![token_id],vec![token_meta]);
-                    Ok(())
-                }
-            },
-            None => {
-                let token_ids = self.storage_mut().gen_token_ids(1);
-                self.storage_mut()
-                    .mint_many(recipient, token_ids,vec![token_meta]);
-                Ok(())
-            }
-        }
+    fn mint_one(
+        &mut self,
+        recipient: &Key,
+        token_id: Option<TokenId>,
+        token_meta: Meta,
+    ) -> Result<(), Error> {
+        self.mint_many(recipient, token_id.map(|id| vec![id]), vec![token_meta])
     }
 
-    fn mint_many(&mut self, recipient: PublicKey, token_ids: Option<Vec<TokenId>>, token_metas: Vec<Meta>) -> Result<(), Error> {
-        match token_ids {
+    fn mint_many(
+        &mut self,
+        recipient: &Key,
+        token_ids: Option<Vec<TokenId>>,
+        token_metas: Vec<Meta>,
+    ) -> Result<(), Error> {
+        let unique_token_ids = match token_ids {
+            // Validate token_ids and metas.
             Some(token_ids) => {
                 if token_ids.len() != token_metas.len() {
                     return Err(Error::ArgumentsError);
-                }
+                };
                 let valid = self.storage().validate_token_ids(&token_ids);
                 if !valid {
-                    Err(Error::TokenIdAlreadyExists)
-                } else {
-                    self.storage_mut()
-                        .mint_many(recipient, token_ids, token_metas);
-                    Ok(())
-                }
-            },
-            None => {
-                let token_ids = self.storage_mut().gen_token_ids(token_metas.len() as u32);
-                self.storage_mut()
-                    .mint_many(recipient, token_ids, token_metas);
-                Ok(())
+                    return Err(Error::TokenIdAlreadyExists);
+                };
+                Ok(token_ids)
             }
-        }
+            None => Ok(self.storage_mut().gen_token_ids(token_metas.len() as u32)),
+        };
+
+        unique_token_ids.map(|token_ids| {
+            // Mint tokens.
+            self.storage_mut()
+                .mint_many(&recipient, &token_ids, &token_metas);
+
+            // Emit event.
+            self.storage_mut().emit(CEP47Event::Mint {
+                recipient: recipient.clone(),
+                token_ids,
+            });
+        })
     }
 
-    fn mint_copies(&mut self, recipient: PublicKey, token_ids: Option<Vec<TokenId>>, token_meta: Meta, count: u32) -> Result<(), Error> {
+    fn mint_copies(
+        &mut self,
+        recipient: &Key,
+        token_ids: Option<Vec<TokenId>>,
+        token_meta: Meta,
+        count: u32,
+    ) -> Result<(), Error> {
         if let Some(token_ids) = &token_ids {
             if token_ids.len() != count as usize {
                 return Err(Error::ArgumentsError);
@@ -138,91 +145,91 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         self.mint_many(recipient, token_ids, token_metas)
     }
 
-    fn burn_one(&mut self, owner: PublicKey, token_id: TokenId) {
-        self.storage_mut().burn_one(owner, token_id);
+    fn burn_one(&mut self, owner: &Key, token_id: TokenId) {
+        self.storage_mut().burn_many(owner, &vec![token_id]);
     }
 
-    fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>) {
-        self.storage_mut().burn_many(owner, token_ids);
+    fn burn_many(&mut self, owner: &Key, token_ids: Vec<TokenId>) {
+        self.storage_mut().burn_many(owner, &token_ids);
     }
 
     // Transfer functions.
     fn transfer_token(
         &mut self,
-        sender: PublicKey,
-        recipient: PublicKey,
-        token_id: TokenId,
+        sender: &Key,
+        recipient: &Key,
+        token_id: &TokenId,
     ) -> Result<(), Error> {
-        if self.is_paused() {
-            return Err(Error::PermissionDenied);
-        }
-        // 1. Load tokens owned by the sender.
-        let mut sender_tokens = self.storage().get_tokens(sender.clone());
-        // 2. Assert that token_id is in sender_tokens.
-        if !sender_tokens.contains(&token_id) {
-            return Err(Error::PermissionDenied);
-        }
-        // 3. Remove token_id from sender_tokens.
-        sender_tokens.retain(|x| x.clone() != token_id);
-        self.storage_mut().set_tokens(sender, sender_tokens);
-
-        // 4. Add token_id to the recipient tokens
-        let mut recipient_tokens = self.storage().get_tokens(recipient.clone());
-        recipient_tokens.push(token_id);
-        self.storage_mut().set_tokens(recipient, recipient_tokens);
-        Ok(())
+        self.transfer_many_tokens(sender, recipient, &vec![token_id.clone()])
     }
 
     fn transfer_many_tokens(
         &mut self,
-        sender: PublicKey,
-        recipient: PublicKey,
-        token_ids: Vec<TokenId>,
+        sender: &Key,
+        recipient: &Key,
+        token_ids: &Vec<TokenId>,
     ) -> Result<(), Error> {
         if self.is_paused() {
             return Err(Error::PermissionDenied);
         }
-        let mut sender_tokens = self.storage().get_tokens(sender.clone());
+        let mut sender_tokens = self.storage().get_tokens(&sender);
 
         for token_id in token_ids.iter() {
             if !sender_tokens.contains(token_id) {
                 return Err(Error::PermissionDenied);
             }
-            sender_tokens.retain(|x| x.clone() != token_id.clone());
+            sender_tokens.retain(|x| x != token_id);
         }
-        let mut recipient_tokens = self.storage().get_tokens(recipient.clone());
+        let mut recipient_tokens = self.storage().get_tokens(&recipient);
         recipient_tokens.append(&mut token_ids.clone());
-        self.storage_mut().set_tokens(sender, sender_tokens);
-        self.storage_mut().set_tokens(recipient, recipient_tokens);
+        self.storage_mut().set_tokens(&sender, sender_tokens);
+        self.storage_mut().set_tokens(&recipient, recipient_tokens);
+
+        // Emit transfer event.
+        let package = self.storage().contact_package_hash();
+        self.storage_mut().emit(CEP47Event::Transfer {
+            sender: sender.clone(),
+            recipient: recipient.clone(),
+            token_ids: token_ids.clone(),
+        });
         Ok(())
     }
 
-    fn transfer_all_tokens(
-        &mut self,
-        sender: PublicKey,
-        recipient: PublicKey,
-    ) -> Result<(), Error> {
+    fn transfer_all_tokens(&mut self, sender: &Key, recipient: &Key) -> Result<(), Error> {
         if self.is_paused() {
             return Err(Error::PermissionDenied);
         }
-        let mut sender_tokens = self.storage().get_tokens(sender.clone());
-        let mut recipient_tokens = self.storage().get_tokens(recipient.clone());
+        let mut sender_tokens = self.storage().get_tokens(&sender);
+        let mut recipient_tokens = self.storage().get_tokens(&recipient);
         recipient_tokens.append(&mut sender_tokens);
 
-        self.storage_mut().set_tokens(sender, sender_tokens);
-        self.storage_mut().set_tokens(recipient, recipient_tokens);
+        self.storage_mut()
+            .set_tokens(&sender, sender_tokens.clone());
+        self.storage_mut().set_tokens(&recipient, recipient_tokens);
+
+        // Emit transfer event.
+        self.storage_mut().emit(CEP47Event::Transfer {
+            sender: sender.clone(),
+            recipient: recipient.clone(),
+            token_ids: sender_tokens,
+        });
+
         Ok(())
     }
 
-    fn update_token_metadata(
-        &mut self,
-        token_id: TokenId,
-        meta: Meta
-    ) -> Result<(), Error> {
+    fn update_token_metadata(&mut self, token_id: TokenId, meta: Meta) -> Result<(), Error> {
+        // Assert token exists.
         if self.owner_of(&token_id).is_none() {
             return Err(Error::TokenIdDoesntExist);
         };
-        self.storage_mut().update_token_metadata(token_id, meta);
+
+        // Update the storage.
+        self.storage_mut().update_token_metadata(&token_id, meta);
+
+        // Emit token update event.
+        self.storage_mut()
+            .emit(CEP47Event::MetadataUpdate { token_id });
+
         Ok(())
     }
 }
@@ -234,10 +241,10 @@ pub trait CEP47Storage {
     fn meta(&self) -> Meta;
 
     // Getters
-    fn balance_of(&self, owner: PublicKey) -> U256;
-    fn onwer_of(&self, token_id: &TokenId) -> Option<PublicKey>;
+    fn balance_of(&self, owner: &Key) -> U256;
+    fn onwer_of(&self, token_id: &TokenId) -> Option<Key>;
     fn total_supply(&self) -> U256;
-    fn token_meta(&self, token_id: TokenId) -> Option<Meta>;
+    fn token_meta(&self, token_id: &TokenId) -> Option<Meta>;
 
     // Controls
     fn is_paused(&self) -> bool;
@@ -245,13 +252,16 @@ pub trait CEP47Storage {
     fn unpause(&mut self);
 
     // Setters
-    fn get_tokens(&self, owner: PublicKey) -> Vec<TokenId>;
-    fn set_tokens(&mut self, owner: PublicKey, token_ids: Vec<TokenId>);
-    fn mint_many(&mut self, recipient: PublicKey, token_ids: Vec<TokenId>, token_metas: Vec<Meta>);
-    fn burn_one(&mut self, owner: PublicKey, token_id: TokenId);
-    fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>);
-    fn update_token_metadata(&mut self, token_id: TokenId, meta: Meta);
+    fn get_tokens(&self, owner: &Key) -> Vec<TokenId>;
+    fn set_tokens(&mut self, owner: &Key, token_ids: Vec<TokenId>);
+    fn mint_many(&mut self, recipient: &Key, token_ids: &Vec<TokenId>, token_metas: &Vec<Meta>);
+    // fn burn_one(&mut self, owner: &Key, token_id: &TokenId);
+    fn burn_many(&mut self, owner: &Key, token_ids: &Vec<TokenId>);
+    fn update_token_metadata(&mut self, token_id: &TokenId, meta: Meta);
 
     fn gen_token_ids(&mut self, n: u32) -> Vec<TokenId>;
     fn validate_token_ids(&self, token_ids: &Vec<TokenId>) -> bool;
+
+    fn emit(&mut self, event: CEP47Event);
+    fn contact_package_hash(&self) -> ContractPackageHash;
 }

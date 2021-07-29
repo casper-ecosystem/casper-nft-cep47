@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
-    account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, PublicKey, RuntimeArgs,
+    account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, Key, PublicKey, RuntimeArgs,
     SecretKey, U256, U512,
 };
 
@@ -23,13 +23,17 @@ pub mod token_cfg {
 pub const CONTRACT_KEY: &str = "DragonsNFT_contract";
 pub const CONTRACT_HASH_KEY: &str = "DragonsNFT_contract_hash";
 
-pub struct Sender(pub AccountHash);
+const BALANCES_DICT: &str = "balances";
+const OWNED_TOKENS_DICT: &str = "owned_tokens";
+const TOKEN_OWNERS_DICT: &str = "owners";
+const METADATA_DICT: &str = "metadata";
+
 pub struct CasperCEP47Contract {
     pub context: TestContext,
     pub hash: Hash,
-    pub admin: PublicKey,
-    pub ali: PublicKey,
-    pub bob: PublicKey,
+    pub admin: AccountHash,
+    pub ali: AccountHash,
+    pub bob: AccountHash,
 }
 
 pub type TokenId = String;
@@ -69,32 +73,52 @@ impl CasperCEP47Contract {
         Self {
             context,
             hash,
-            admin: admin,
-            ali: ali,
-            bob: bob,
+            admin: admin.to_account_hash(),
+            ali: ali.to_account_hash(),
+            bob: bob.to_account_hash(),
         }
     }
 
-    fn call(&mut self, sender: Sender, method: &str, args: RuntimeArgs) {
-        let Sender(address) = sender;
+    fn call(&mut self, sender: &AccountHash, method: &str, args: RuntimeArgs) {
+        let account = *sender;
         let code = Code::Hash(self.hash, method.to_string());
         let session = SessionBuilder::new(code, args)
-            .with_address(address)
-            .with_authorization_keys(&[address])
+            .with_address(account)
+            .with_authorization_keys(&[account])
             .build();
         self.context.run(session);
     }
 
     fn query_contract<T: CLTyped + FromBytes>(&self, name: &str) -> Option<T> {
-        match self.context.query(
-            self.admin.to_account_hash(),
-            &[CONTRACT_KEY.to_string(), name.to_string()],
-        ) {
+        match self
+            .context
+            .query(self.admin, &[CONTRACT_KEY.to_string(), name.to_string()])
+        {
             Err(_) => None,
             Ok(maybe_value) => {
                 let value = maybe_value
                     .into_t()
                     .unwrap_or_else(|_| panic!("{} is not expected type.", name));
+                Some(value)
+            }
+        }
+    }
+
+    fn query_dictionary_value<T: CLTyped + FromBytes>(
+        &self,
+        dict_name: &str,
+        key: String,
+    ) -> Option<T> {
+        match self.context.query_dictionary_item(
+            Key::Hash(self.hash),
+            Some(dict_name.to_string()),
+            key,
+        ) {
+            Err(_) => None,
+            Ok(maybe_value) => {
+                let value = maybe_value
+                    .into_t()
+                    .unwrap_or_else(|_| panic!("is not expected type."));
                 Some(value)
             }
         }
@@ -116,148 +140,163 @@ impl CasperCEP47Contract {
         self.query_contract("total_supply").unwrap_or_default()
     }
 
-    pub fn owner_of(&self, token_id: &TokenId) -> Option<PublicKey> {
-        self.query_contract(owner_key(&token_id).as_str())
+    pub fn owner_of(&self, token_id: &TokenId) -> Option<AccountHash> {
+        let key: Key = self
+            .query_dictionary_value(TOKEN_OWNERS_DICT, token_id.clone())
+            .unwrap();
+        key.into_account()
     }
 
-    pub fn balance_of(&self, owner: PublicKey) -> U256 {
-        self.query_contract(balance_key(&owner.to_account_hash()).as_str())
-            .unwrap_or_default()
+    pub fn balance_of(&self, owner: &AccountHash) -> U256 {
+        let value: Option<U256> = self.query_dictionary_value(BALANCES_DICT, owner.to_string());
+        value.unwrap_or(U256::zero())
     }
 
-    pub fn tokens(&self, owner: PublicKey) -> Vec<TokenId> {
-        self.query_contract::<Vec<TokenId>>(token_key(&owner.to_account_hash()).as_str())
-            .unwrap_or_default()
+    pub fn tokens(&self, owner: &AccountHash) -> Vec<TokenId> {
+        let value: Option<Vec<TokenId>> =
+            self.query_dictionary_value(OWNED_TOKENS_DICT, owner.to_string());
+        value.unwrap_or(Vec::new())
     }
 
-    pub fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
-        self.query_contract(meta_key(&token_id).as_str())
+    pub fn token_meta(&self, token_id: &TokenId) -> Option<Meta> {
+        self.query_dictionary_value(METADATA_DICT, token_id.clone())
     }
 
-    pub fn mint_one(&mut self, recipient: PublicKey, token_id: Option<TokenId>, token_meta: Meta, sender: Sender) {
+    pub fn mint_one(
+        &mut self,
+        recipient: &AccountHash,
+        token_id: Option<&TokenId>,
+        token_meta: &Meta,
+        sender: &AccountHash,
+    ) {
         self.call(
             sender,
             "mint_one",
             runtime_args! {
-                "recipient" => recipient,
-                "token_id" => token_id,
-                "token_meta" => token_meta
+                "recipient" => Key::from(*recipient),
+                "token_id" => token_id.map(|id| id.clone()),
+                "token_meta" => token_meta.clone()
             },
         );
     }
 
     pub fn mint_copies(
         &mut self,
-        recipient: PublicKey,
-        token_ids: Option<Vec<TokenId>>,
-        token_meta: Meta,
+        recipient: &AccountHash,
+        token_ids: Option<&Vec<TokenId>>,
+        token_meta: &Meta,
         count: u32,
-        sender: Sender,
+        sender: &AccountHash,
     ) {
         self.call(
             sender,
             "mint_copies",
             runtime_args! {
-                "recipient" => recipient,
-                "token_ids" => token_ids,
-                "token_meta" => token_meta,
+                "recipient" => Key::from(*recipient),
+                "token_ids" => token_ids.map(|ids| ids.clone()),
+                "token_meta" => token_meta.clone(),
                 "count" => count
             },
         );
     }
 
-    pub fn mint_many(&mut self, recipient: PublicKey, token_ids: Option<Vec<TokenId>>, token_metas: Vec<Meta>, sender: Sender) {
+    pub fn mint_many(
+        &mut self,
+        recipient: &AccountHash,
+        token_ids: Option<&Vec<TokenId>>,
+        token_metas: &Vec<Meta>,
+        sender: &AccountHash,
+    ) {
         self.call(
             sender,
             "mint_many",
             runtime_args! {
-                "recipient" => recipient,
-                "token_ids" => token_ids,
-                "token_metas" => token_metas
+                "recipient" => Key::from(*recipient),
+                "token_ids" => token_ids.map(|ids| ids.clone()),
+                "token_metas" => token_metas.clone(),
             },
         );
     }
 
-    pub fn burn_many(&mut self, owner: PublicKey, token_ids: Vec<TokenId>, sender: Sender) {
+    pub fn burn_many(
+        &mut self,
+        owner: &AccountHash,
+        token_ids: &Vec<TokenId>,
+        sender: &AccountHash,
+    ) {
         self.call(
             sender,
             "burn_many",
             runtime_args! {
-                "owner" => owner,
-                "token_ids" => token_ids
+                "owner" => Key::from(*owner),
+                "token_ids" => token_ids.clone()
             },
         );
     }
 
-    pub fn burn_one(&mut self, owner: PublicKey, token_id: TokenId, sender: Sender) {
+    pub fn burn_one(&mut self, owner: &AccountHash, token_id: &TokenId, sender: &AccountHash) {
         self.call(
             sender,
             "burn_one",
             runtime_args! {
-                "owner" => owner,
-                "token_id" => token_id
+                "owner" => Key::from(*owner),
+                "token_id" => token_id.clone()
             },
         );
     }
 
     pub fn transfer_token(
         &mut self,
-        owner: PublicKey,
-        recipient: PublicKey,
-        token_id: TokenId,
-        sender: Sender,
+        recipient: &AccountHash,
+        token_id: &TokenId,
+        sender: &AccountHash,
     ) {
         self.call(
             sender,
             "transfer_token",
             runtime_args! {
-                "sender" => owner,
-                "recipient" => recipient,
-                "token_id" => token_id
+                "recipient" => Key::from(*recipient),
+                "token_id" => token_id.clone()
             },
         );
     }
 
     pub fn transfer_many_tokens(
         &mut self,
-        owner: PublicKey,
-        recipient: PublicKey,
-        token_ids: Vec<TokenId>,
-        sender: Sender,
+        recipient: &AccountHash,
+        token_ids: &Vec<TokenId>,
+        sender: &AccountHash,
     ) {
         self.call(
             sender,
             "transfer_many_tokens",
             runtime_args! {
-                "sender" => owner,
-                "recipient" => recipient,
-                "token_ids" => token_ids
+                "recipient" => Key::from(*recipient),
+                "token_ids" => token_ids.clone()
             },
         );
     }
 
-    pub fn transfer_all_tokens(&mut self, owner: PublicKey, recipient: PublicKey, sender: Sender) {
+    pub fn transfer_all_tokens(&mut self, recipient: &AccountHash, sender: &AccountHash) {
         self.call(
             sender,
             "transfer_all_tokens",
             runtime_args! {
-                "sender" => owner,
-                "recipient" => recipient
+                "recipient" => Key::from(*recipient)
             },
         );
     }
-    
-    pub fn update_token_metadata(&mut self, token_id: TokenId, meta: Meta, sender: Sender) {
+
+    pub fn update_token_metadata(&mut self, token_id: &TokenId, meta: &Meta, sender: &AccountHash) {
         self.call(
             sender,
             "update_token_metadata",
             runtime_args! {
-                "token_id" => token_id,
-                "meta" => meta
+                "token_id" => token_id.clone(),
+                "token_meta" => meta.clone()
             },
         );
     }
-    
 }
 
 fn balance_key(account: &AccountHash) -> String {

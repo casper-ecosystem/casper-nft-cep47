@@ -2,15 +2,15 @@ prepare:
 	rustup target add wasm32-unknown-unknown
 
 build-contract:
-	cargo build --release -p dragons-nft --target wasm32-unknown-unknown
+	cargo build --release -p test-contracts --target wasm32-unknown-unknown
 
 test-only:
 	cargo test -p cep47-logic
-	cargo test -p dragons-nft-tests
+	cargo test -p cep47-tests
 
 copy-wasm-file-to-test:
-	mkdir -p dragons-nft-tests/wasm
-	cp target/wasm32-unknown-unknown/release/*.wasm dragons-nft-tests/wasm
+	mkdir -p cep47-tests/wasm
+	cp target/wasm32-unknown-unknown/release/*.wasm cep47-tests/wasm
 
 test: build-contract copy-wasm-file-to-test test-only
 
@@ -27,4 +27,4 @@ lint: clippy format
 	
 clean:
 	cargo clean
-	rm -rf dragons-nft-tests/wasm/*.wasm
+	rm -rf cep47-tests/wasm/*.wasm

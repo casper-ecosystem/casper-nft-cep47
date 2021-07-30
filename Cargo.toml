@@ -3,8 +3,8 @@
 members = [
     "cep47",
     "cep47-logic",
-    "dragons-nft",
-	"dragons-nft-tests"
+    "cep47-tests",
+	"test-contracts"
 ]
 
 [profile.release]

@@ -1,5 +1,5 @@
 [package]
-name = "dragons-nft"
+name = "test-contracts"
 version = "0.1.0"
 authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"
@@ -11,7 +11,7 @@ cep47 = { path="../cep47"}
 
 [[bin]]
 name = "dragons-nft"
-path = "src/main.rs"
+path = "src/dragons-nft.rs"
 bench = false
 doctest = false
 test = false

@@ -1,5 +1,5 @@
 [package]
-name = "dragons-nft-tests"
+name = "cep47-tests"
 version = "0.1.0"
 authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"

@@ -33,7 +33,7 @@ impl CEP47Storage for CasperCEP47Storage {
         Balances::instance().get(owner)
     }
 
-    fn onwer_of(&self, token_id: &TokenId) -> Option<Key> {
+    fn owner_of(&self, token_id: &TokenId) -> Option<Key> {
         Owners::instance().get(token_id)
     }
 
@@ -129,7 +129,7 @@ impl CEP47Storage for CasperCEP47Storage {
 
         // Remove tokens.
         for token_id in token_ids {
-            // Remove token form the onwer's list.
+            // Remove token from the owner's list.
             // Make sure that token is owned by the recipient.
             let index = owner_tokens
                 .iter()
@@ -181,7 +181,7 @@ impl CEP47Storage for CasperCEP47Storage {
 
     fn validate_token_ids(&self, token_ids: &Vec<TokenId>) -> bool {
         for token_id in token_ids {
-            if self.onwer_of(token_id).is_some() {
+            if self.owner_of(token_id).is_some() {
                 return false;
             }
         }

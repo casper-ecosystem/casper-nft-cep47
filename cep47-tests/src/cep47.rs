@@ -79,6 +79,20 @@ impl CasperCEP47Contract {
         }
     }
 
+    pub fn deploy_secondary_contract(&mut self, wasm: &str, contract_hash_name: &str ,args: RuntimeArgs) -> Hash{
+        let session_code = Code::from(wasm);
+        let session = SessionBuilder::new(session_code, args)
+            .with_address(self.admin)
+            .with_authorization_keys(&[self.admin])
+            .build();
+        self.context.run(session);
+        self.context
+            .query(self.admin, &[contract_hash_name.to_string()])
+            .unwrap()
+            .into_t()
+            .unwrap()
+    }
+
     fn call(&mut self, sender: &AccountHash, method: &str, args: RuntimeArgs) {
         let account = *sender;
         let code = Code::Hash(self.hash, method.to_string());
@@ -140,21 +154,20 @@ impl CasperCEP47Contract {
         self.query_contract("total_supply").unwrap_or_default()
     }
 
-    pub fn owner_of(&self, token_id: &TokenId) -> Option<AccountHash> {
-        let key: Key = self
-            .query_dictionary_value(TOKEN_OWNERS_DICT, token_id.clone())
-            .unwrap();
-        key.into_account()
+    pub fn owner_of(&self, token_id: &TokenId) -> Key {
+        self
+            .query_dictionary_value::<Key>(TOKEN_OWNERS_DICT, token_id.clone())
+            .unwrap()
     }
 
-    pub fn balance_of(&self, owner: &AccountHash) -> U256 {
-        let value: Option<U256> = self.query_dictionary_value(BALANCES_DICT, owner.to_string());
+    pub fn balance_of(&self, owner: &Key) -> U256 {
+        let value: Option<U256> = self.query_dictionary_value(BALANCES_DICT, Self::key_to_str(owner));
         value.unwrap_or_default()
     }
 
-    pub fn tokens(&self, owner: &AccountHash) -> Vec<TokenId> {
+    pub fn tokens(&self, owner: &Key) -> Vec<TokenId> {
         let value: Option<Vec<TokenId>> =
-            self.query_dictionary_value(OWNED_TOKENS_DICT, owner.to_string());
+            self.query_dictionary_value(OWNED_TOKENS_DICT, Self::key_to_str(owner));
         value.unwrap_or_default()
     }
 
@@ -164,7 +177,7 @@ impl CasperCEP47Contract {
 
     pub fn mint_one(
         &mut self,
-        recipient: &AccountHash,
+        recipient: &Key,
         token_id: Option<&TokenId>,
         token_meta: &Meta,
         sender: &AccountHash,
@@ -173,7 +186,7 @@ impl CasperCEP47Contract {
             sender,
             "mint_one",
             runtime_args! {
-                "recipient" => Key::from(*recipient),
+                "recipient" => *recipient,
                 "token_id" => token_id.cloned(),
                 "token_meta" => token_meta.clone()
             },
@@ -296,5 +309,14 @@ impl CasperCEP47Contract {
                 "token_meta" => meta.clone()
             },
         );
+    }
+
+
+    fn key_to_str(key: &Key) -> String {
+        match key {
+            Key::Account(account) => account.to_string(),
+            Key::Hash(package) => hex::encode(package),
+            _ => panic!(),
+        }
     }
 }

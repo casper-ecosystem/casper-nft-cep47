@@ -1,5 +1,6 @@
 use crate::cep47::{token_cfg, CasperCEP47Contract, Meta, TokenId};
-use casper_types::U256;
+use casper_engine_test_support::Hash;
+use casper_types::{Key, U256, runtime_args, RuntimeArgs};
 
 mod meta {
     use super::Meta;
@@ -47,7 +48,7 @@ fn test_token_meta() {
     let token_meta = meta::red_dragon();
 
     contract.mint_one(
-        &contract.ali.clone(),
+        &Key::Account(contract.ali),
         Some(&token_id),
         &token_meta,
         &contract.admin.clone(),
@@ -56,7 +57,7 @@ fn test_token_meta() {
     let ali_token_meta = contract.token_meta(&token_id).unwrap();
     assert_eq!(ali_token_meta, token_meta);
 
-    let ali_tokens: Vec<TokenId> = contract.tokens(&contract.ali);
+    let ali_tokens: Vec<TokenId> = contract.tokens(&Key::Account(contract.ali));
     assert_eq!(ali_tokens, vec![token_id]);
 }
 
@@ -65,18 +66,18 @@ fn test_mint_one_with_random_token_id() {
     let mut contract = CasperCEP47Contract::deploy();
     let token_meta = meta::red_dragon();
     contract.mint_one(
-        &contract.ali.clone(),
+        &Key::Account(contract.ali),
         None,
         &token_meta,
         &contract.admin.clone(),
     );
 
     assert_eq!(contract.total_supply(), U256::one());
-    assert_eq!(contract.balance_of(&contract.ali), U256::one());
+    assert_eq!(contract.balance_of(&Key::Account(contract.ali)), U256::one());
 
-    let ali_tokens: Vec<TokenId> = contract.tokens(&contract.ali);
+    let ali_tokens: Vec<TokenId> = contract.tokens(&Key::Account(contract.ali));
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::one());
-    assert_eq!(contract.owner_of(&ali_tokens[0]), Some(contract.ali));
+    assert_eq!(contract.owner_of(&ali_tokens[0]), Key::Account(contract.ali));
 }
 
 #[test]
@@ -85,18 +86,18 @@ fn test_mint_one_with_set_token_id() {
     let token_id = TokenId::from("123456");
     let token_meta = meta::red_dragon();
     contract.mint_one(
-        &contract.ali.clone(),
+        &Key::Account(contract.ali),
         Some(&token_id),
         &token_meta,
         &contract.admin.clone(),
     );
 
-    let ali_tokens: Vec<TokenId> = contract.tokens(&contract.ali);
+    let ali_tokens: Vec<TokenId> = contract.tokens(&Key::Account(contract.ali));
     assert_eq!(ali_tokens, vec![token_id.clone()]);
     assert_eq!(contract.total_supply(), U256::one());
-    assert_eq!(contract.balance_of(&contract.ali), U256::one());
+    assert_eq!(contract.balance_of(&Key::Account(contract.ali)), U256::one());
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::one());
-    assert_eq!(contract.owner_of(&token_id), Some(contract.ali));
+    assert_eq!(contract.owner_of(&token_id), Key::Account(contract.ali));
 }
 
 #[test]
@@ -106,13 +107,13 @@ fn test_mint_one_with_not_unique_token_id() {
     let token_id = TokenId::from("123456");
     let token_meta = meta::red_dragon();
     contract.mint_one(
-        &contract.ali.clone(),
+        &Key::Account(contract.ali),
         Some(&token_id),
         &token_meta,
         &contract.admin.clone(),
     );
     contract.mint_one(
-        &contract.ali.clone(),
+        &Key::Account(contract.ali),
         Some(&token_id),
         &token_meta,
         &contract.admin.clone(),
@@ -131,13 +132,13 @@ fn test_mint_copies() {
         &contract.admin.clone(),
     );
 
-    let ali_tokens: Vec<TokenId> = contract.tokens(&contract.ali);
+    let ali_tokens: Vec<TokenId> = contract.tokens(&Key::Account(contract.ali));
     assert_eq!(contract.total_supply(), U256::from(3));
-    assert_eq!(contract.balance_of(&contract.ali), U256::from(3));
+    assert_eq!(contract.balance_of(&Key::Account(contract.ali)), U256::from(3));
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(3));
-    assert_eq!(contract.owner_of(&ali_tokens[0]), Some(contract.ali));
-    assert_eq!(contract.owner_of(&ali_tokens[1]), Some(contract.ali));
-    assert_eq!(contract.owner_of(&ali_tokens[2]), Some(contract.ali));
+    assert_eq!(contract.owner_of(&ali_tokens[0]), Key::Account(contract.ali));
+    assert_eq!(contract.owner_of(&ali_tokens[1]), Key::Account(contract.ali));
+    assert_eq!(contract.owner_of(&ali_tokens[2]), Key::Account(contract.ali));
 }
 
 #[test]
@@ -151,13 +152,13 @@ fn test_mint_many() {
         &contract.admin.clone(),
     );
 
-    let ali_tokens: Vec<TokenId> = contract.tokens(&contract.ali);
+    let ali_tokens: Vec<TokenId> = contract.tokens(&Key::Account(contract.ali));
 
     assert_eq!(contract.total_supply(), U256::from(2));
-    assert_eq!(contract.balance_of(&contract.ali), U256::from(2));
+    assert_eq!(contract.balance_of(&Key::Account(contract.ali)), U256::from(2));
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(2));
-    assert_eq!(contract.owner_of(&ali_tokens[0]), Some(contract.ali));
-    assert_eq!(contract.owner_of(&ali_tokens[1]), Some(contract.ali));
+    assert_eq!(contract.owner_of(&ali_tokens[0]), Key::Account(contract.ali));
+    assert_eq!(contract.owner_of(&ali_tokens[1]), Key::Account(contract.ali));
 }
 
 #[test]
@@ -176,7 +177,7 @@ fn test_burn_many() {
         &contract.admin.clone(),
     );
 
-    let ali_tokens: Vec<TokenId> = contract.tokens(&contract.ali);
+    let ali_tokens: Vec<TokenId> = contract.tokens(&Key::Account(contract.ali));
     println!("{:?}", ali_tokens);
     println!("{:?}", ali_tokens.first().unwrap().clone());
 
@@ -189,9 +190,9 @@ fn test_burn_many() {
         &contract.admin.clone(),
     );
     assert_eq!(contract.total_supply(), U256::from(2));
-    assert_eq!(contract.balance_of(&contract.ali), U256::from(2));
+    assert_eq!(contract.balance_of(&Key::Account(contract.ali)), U256::from(2));
 
-    let ali_tokens = contract.tokens(&contract.ali);
+    let ali_tokens = contract.tokens(&Key::Account(contract.ali));
     println!("{:?}", ali_tokens);
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(2));
 }
@@ -207,7 +208,7 @@ fn test_burn_one() {
         &contract.admin.clone(),
     );
 
-    let ali_tokens = contract.tokens(&contract.ali);
+    let ali_tokens = contract.tokens(&Key::Account(contract.ali));
 
     contract.burn_one(
         &contract.ali.clone(),
@@ -215,9 +216,9 @@ fn test_burn_one() {
         &contract.admin.clone(),
     );
     assert_eq!(contract.total_supply(), U256::from(1));
-    assert_eq!(contract.balance_of(&contract.ali), U256::from(1));
+    assert_eq!(contract.balance_of(&Key::Account(contract.ali)), U256::from(1));
 
-    let ali_tokens = contract.tokens(&contract.ali);
+    let ali_tokens = contract.tokens(&Key::Account(contract.ali));
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(1));
 }
 
@@ -232,15 +233,15 @@ fn test_transfer_token() {
         &contract.admin.clone(),
     );
 
-    let ali_tokens: Vec<TokenId> = contract.tokens(&contract.ali);
+    let ali_tokens: Vec<TokenId> = contract.tokens(&Key::Account(contract.ali));
 
     contract.transfer_token(&contract.bob.clone(), &ali_tokens[1], &contract.ali.clone());
 
-    assert_eq!(contract.balance_of(&contract.ali), U256::from(1));
-    assert_eq!(contract.balance_of(&contract.bob), U256::from(1));
+    assert_eq!(contract.balance_of(&Key::Account(contract.ali)), U256::from(1));
+    assert_eq!(contract.balance_of(&Key::Account(contract.bob)), U256::from(1));
     assert_eq!(contract.total_supply(), U256::from(2));
-    assert_eq!(contract.owner_of(&ali_tokens[0]), Some(contract.ali));
-    assert_eq!(contract.owner_of(&ali_tokens[1]), Some(contract.bob));
+    assert_eq!(contract.owner_of(&ali_tokens[0]), Key::Account(contract.ali));
+    assert_eq!(contract.owner_of(&ali_tokens[1]), Key::Account(contract.bob));
 }
 
 #[test]
@@ -257,19 +258,19 @@ fn test_transfer_many_tokens() {
         &token_metas,
         &contract.admin.clone(),
     );
-    let ali_tokens: Vec<TokenId> = contract.tokens(&contract.ali);
+    let ali_tokens: Vec<TokenId> = contract.tokens(&Key::Account(contract.ali));
     contract.transfer_many_tokens(
         &contract.bob.clone(),
         &ali_tokens[..2].to_vec(),
         &contract.ali.clone(),
     );
 
-    assert_eq!(contract.balance_of(&contract.ali), U256::from(1));
-    assert_eq!(contract.balance_of(&contract.bob), U256::from(2));
+    assert_eq!(contract.balance_of(&Key::Account(contract.ali)), U256::from(1));
+    assert_eq!(contract.balance_of(&Key::Account(contract.bob)), U256::from(2));
     assert_eq!(contract.total_supply(), U256::from(3));
-    assert_eq!(contract.owner_of(&ali_tokens[0]), Some(contract.bob));
-    assert_eq!(contract.owner_of(&ali_tokens[1]), Some(contract.bob));
-    assert_eq!(contract.owner_of(&ali_tokens[2]), Some(contract.ali));
+    assert_eq!(contract.owner_of(&ali_tokens[0]), Key::Account(contract.bob));
+    assert_eq!(contract.owner_of(&ali_tokens[1]), Key::Account(contract.bob));
+    assert_eq!(contract.owner_of(&ali_tokens[2]), Key::Account(contract.ali));
 }
 
 #[test]
@@ -283,15 +284,15 @@ fn test_transfer_all_tokens() {
         &contract.admin.clone(),
     );
 
-    let ali_tokens: Vec<TokenId> = contract.tokens(&contract.ali);
+    let ali_tokens: Vec<TokenId> = contract.tokens(&Key::Account(contract.ali));
 
     contract.transfer_all_tokens(&contract.bob.clone(), &contract.ali.clone());
-    assert_eq!(contract.balance_of(&contract.ali), U256::from(0));
-    assert_eq!(contract.balance_of(&contract.bob), U256::from(2));
+    assert_eq!(contract.balance_of(&Key::Account(contract.ali)), U256::from(0));
+    assert_eq!(contract.balance_of(&Key::Account(contract.bob)), U256::from(2));
     assert_eq!(contract.total_supply(), U256::from(2));
 
-    assert_eq!(contract.owner_of(&ali_tokens[0]), Some(contract.bob));
-    assert_eq!(contract.owner_of(&ali_tokens[1]), Some(contract.bob));
+    assert_eq!(contract.owner_of(&ali_tokens[0]), Key::Account(contract.bob));
+    assert_eq!(contract.owner_of(&ali_tokens[1]), Key::Account(contract.bob));
 }
 
 #[test]
@@ -300,7 +301,7 @@ fn test_token_metadata_update() {
     let token_id = TokenId::from("123456");
     let token_meta = meta::red_dragon();
     contract.mint_one(
-        &contract.ali.clone(),
+        &Key::Account(contract.ali),
         Some(&token_id),
         &token_meta,
         &contract.admin.clone(),
@@ -308,4 +309,25 @@ fn test_token_metadata_update() {
 
     contract.update_token_metadata(&token_id, &meta::blue_dragon(), &contract.admin.clone());
     assert_eq!(contract.token_meta(&token_id).unwrap(), meta::blue_dragon());
+}
+
+#[test]
+fn test_contract_owning_token() {
+    let mut contract = CasperCEP47Contract::deploy();
+    let contract_hash: Hash = contract.deploy_secondary_contract("owning-contract.wasm", "owning_contract_hash", runtime_args!{});
+    let token_id = TokenId::from("123456");
+    let token_meta = meta::red_dragon();
+    contract.mint_one(
+        &Key::Hash(contract_hash),
+        Some(&token_id),
+        &token_meta,
+        &contract.admin.clone(),
+    );
+
+    assert_eq!(contract.total_supply(), U256::from(1));
+    assert_eq!(contract.balance_of(&Key::Hash(contract_hash)), U256::from(1));
+
+    let contracts_tokens: Vec<TokenId> = contract.tokens(&Key::Hash(contract_hash));
+    println!("{:?}", contracts_tokens);
+    assert_eq!(contract.owner_of(&contracts_tokens[0]), Key::Hash(contract_hash));
 }

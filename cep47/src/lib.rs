@@ -74,7 +74,7 @@ pub extern "C" fn name() {
 #[no_mangle]
 pub extern "C" fn symbol() {
     let contract = CasperCEP47Contract::new();
-    ret(contract.symbol())
+    ret((contract.symbol(), 42u8))
 }
 
 #[cfg(not(feature = "no_meta"))]
@@ -282,7 +282,6 @@ pub fn ret<T: CLTyped + ToBytes>(value: T) {
 
 fn get_caller() -> Key {
     match runtime::get_call_stack().first().unwrap_or_revert() {
-        // first or last?
         CallStackElement::Session { account_hash } => (*account_hash).into(),
         CallStackElement::StoredSession {
             account_hash,

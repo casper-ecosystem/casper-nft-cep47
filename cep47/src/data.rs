@@ -65,9 +65,9 @@ impl Balances {
         self.dict.set(&key_to_str(&key), value);
     }
 
-    pub fn remove(&self, key: &Key) {
-        self.dict.remove::<U256>(&key_to_str(&key));
-    }
+    // pub fn remove(&self, key: &Key) {
+    //     self.dict.remove::<U256>(&key_to_str(&key));
+    // }
 }
 
 pub struct OwnedTokens {
@@ -89,9 +89,9 @@ impl OwnedTokens {
         self.dict.set(&key_to_str(&key), value);
     }
 
-    pub fn remove(&self, key: &Key) {
-        self.dict.remove::<TokenId>(&key_to_str(&key));
-    }
+    // pub fn remove(&self, key: &Key) {
+    //     self.dict.remove::<TokenId>(&key_to_str(&key));
+    // }
 }
 
 pub struct Owners {
@@ -265,6 +265,19 @@ pub fn emit(event: &CEP47Event) {
                 event.insert("contract_package_hash", package.to_string());
                 event.insert("event_type", "cep47_mint_one".to_string());
                 event.insert("recipient", recipient.to_string());
+                event.insert("token_id", token_id.to_string());
+                events.push(event);
+            }
+        },
+        CEP47Event::Burn {
+            owner,
+            token_ids
+        } => {
+            for token_id in token_ids {
+                let mut event = BTreeMap::new();
+                event.insert("contract_package_hash", package.to_string());
+                event.insert("event_type", "cep47_burn_one".to_string());
+                event.insert("owner", owner.to_string());
                 event.insert("token_id", token_id.to_string());
                 events.push(event);
             }

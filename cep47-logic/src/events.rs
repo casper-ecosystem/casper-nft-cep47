@@ -17,4 +17,8 @@ pub enum CEP47Event {
         recipient: Key,
         token_ids: Vec<TokenId>,
     },
+    Burn {
+        owner: Key,
+        token_ids: Vec<TokenId>,
+    },
 }

@@ -151,6 +151,12 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
 
     fn burn_many(&mut self, owner: &Key, token_ids: Vec<TokenId>) {
         self.storage_mut().burn_many(owner, &token_ids);
+        
+        // Emit burn event.
+        self.storage_mut().emit(CEP47Event::Burn {
+            owner: owner.clone(),
+            token_ids: token_ids.clone(),
+        });
     }
 
     // Transfer functions.

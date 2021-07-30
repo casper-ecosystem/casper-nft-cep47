@@ -9,7 +9,10 @@ use alloc::{
     string::String,
 };
 use casper_contract::{
-    contract_api::{runtime, storage},
+    contract_api::{
+        runtime::{self, revert},
+        storage,
+    },
     unwrap_or_revert::UnwrapOrRevert,
 };
 use casper_types::{
@@ -282,7 +285,9 @@ pub fn ret<T: CLTyped + ToBytes>(value: T) {
 }
 
 fn get_caller() -> Key {
-    match runtime::get_call_stack().first().unwrap_or_revert() {
+    let mut callstack = runtime::get_call_stack();
+    callstack.pop();
+    match callstack.last().unwrap_or_revert() {
         CallStackElement::Session { account_hash } => (*account_hash).into(),
         CallStackElement::StoredSession {
             account_hash,

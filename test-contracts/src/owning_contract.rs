@@ -1,18 +1,26 @@
 #![no_main]
 
-use casper_contract::{
-    contract_api::{
-        runtime::{self},
-        storage,
-    },
-    unwrap_or_revert::UnwrapOrRevert,
+use casper_contract::contract_api::{
+    runtime::{self, call_versioned_contract},
+    storage,
 };
 use casper_types::{
-    contracts::NamedKeys, CLType, EntryPoint, EntryPointAccess, EntryPoints, Key, Parameter,
+    contracts::NamedKeys, runtime_args, CLType, EntryPoint, EntryPointAccess, EntryPoints, Key,
+    RuntimeArgs,
 };
 
 #[no_mangle]
-pub extern "C" fn call_back() {
+pub extern "C" fn transfer_token() {
+    call_versioned_contract(
+        runtime::get_named_arg("nft"),
+        None,
+        "transfer_token",
+        runtime_args! {
+            "sender" => runtime::get_named_arg::<Key>("sender"),
+            "recipient"=>runtime::get_named_arg::<Key>("recipient"),
+            "token_id"=>runtime::get_named_arg::<String>("token_id")
+        },
+    )
 }
 
 #[no_mangle]
@@ -21,7 +29,7 @@ pub extern "C" fn call() {
     let entry_points = {
         let mut eps = EntryPoints::new();
         eps.add_entry_point(EntryPoint::new(
-            "call_back",
+            "transfer_token",
             vec![],
             CLType::Unit,
             EntryPointAccess::Public,
@@ -29,10 +37,7 @@ pub extern "C" fn call() {
         ));
         eps
     };
-    let named_keys = {
-        let mut nk = NamedKeys::new();
-        nk
-    };
+    let named_keys = NamedKeys::new();
 
     let (contract_hash, _) =
         storage::add_contract_version(contract_package_hash, entry_points, named_keys);
@@ -42,7 +47,7 @@ pub extern "C" fn call() {
         storage::new_uref(contract_hash).into(),
     );
     runtime::put_key(
-        "owning_contract_package",
+        "owning_contract_pack",
         storage::new_uref(contract_package_hash).into(),
     );
 }

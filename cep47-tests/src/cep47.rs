@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
-    account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, Key, PublicKey, RuntimeArgs,
-    SecretKey, U256, U512,
+    account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, ContractPackageHash,
+    HashAddr, Key, PublicKey, RuntimeArgs, SecretKey, U256, U512,
 };
 
 pub mod token_cfg {
@@ -79,18 +79,26 @@ impl CasperCEP47Contract {
         }
     }
 
-    pub fn deploy_secondary_contract(&mut self, wasm: &str, contract_hash_name: &str ,args: RuntimeArgs) -> Hash{
+    pub fn deploy_secondary_contract(&mut self, wasm: &str, args: RuntimeArgs) -> (Hash, HashAddr) {
         let session_code = Code::from(wasm);
         let session = SessionBuilder::new(session_code, args)
             .with_address(self.admin)
             .with_authorization_keys(&[self.admin])
             .build();
         self.context.run(session);
-        self.context
-            .query(self.admin, &[contract_hash_name.to_string()])
+        let hash = self
+            .context
+            .query(self.admin, &["owning_contract_hash".to_string()])
             .unwrap()
             .into_t()
+            .unwrap();
+        let package = self
+            .context
+            .query(self.admin, &["owning_contract_pack".to_string()])
             .unwrap()
+            .into_t()
+            .unwrap();
+        (hash, package)
     }
 
     fn call(&mut self, sender: &AccountHash, method: &str, args: RuntimeArgs) {
@@ -155,13 +163,13 @@ impl CasperCEP47Contract {
     }
 
     pub fn owner_of(&self, token_id: &TokenId) -> Key {
-        self
-            .query_dictionary_value::<Key>(TOKEN_OWNERS_DICT, token_id.clone())
+        self.query_dictionary_value::<Key>(TOKEN_OWNERS_DICT, token_id.clone())
             .unwrap()
     }
 
     pub fn balance_of(&self, owner: &Key) -> U256 {
-        let value: Option<U256> = self.query_dictionary_value(BALANCES_DICT, Self::key_to_str(owner));
+        let value: Option<U256> =
+            self.query_dictionary_value(BALANCES_DICT, Self::key_to_str(owner));
         value.unwrap_or_default()
     }
 
@@ -258,20 +266,40 @@ impl CasperCEP47Contract {
         );
     }
 
-    pub fn transfer_token(
-        &mut self,
-        recipient: &AccountHash,
-        token_id: &TokenId,
-        sender: &AccountHash,
-    ) {
+    pub fn transfer_token(&mut self, recipient: &Key, token_id: &TokenId, sender: &AccountHash) {
         self.call(
             sender,
             "transfer_token",
             runtime_args! {
-                "recipient" => Key::from(*recipient),
+                "recipient" => *recipient,
                 "token_id" => token_id.clone()
             },
         );
+    }
+
+    pub fn transfer_token_from_contract(
+        &mut self,
+        contract_manager: &AccountHash,
+        contract_hash: &Hash,
+        recipient: &Key,
+        token_id: &TokenId,
+    ) {
+        let code = Code::Hash(*contract_hash, "transfer_token".to_string());
+        let nft_package: ContractPackageHash =
+            self.query_contract("contract_package_hash").unwrap();
+        let session = SessionBuilder::new(
+            code,
+            runtime_args! {
+                "nft" => nft_package,
+                "sender" => Key::Hash(*contract_hash),
+                "recipient" => *recipient,
+                "token_id" => token_id.clone()
+            },
+        )
+        .with_address(*contract_manager)
+        .with_authorization_keys(&[*contract_manager])
+        .build();
+        self.context.run(session);
     }
 
     pub fn transfer_many_tokens(
@@ -310,7 +338,6 @@ impl CasperCEP47Contract {
             },
         );
     }
-
 
     fn key_to_str(key: &Key) -> String {
         match key {

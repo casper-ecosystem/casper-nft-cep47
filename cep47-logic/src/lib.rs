@@ -119,11 +119,11 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         unique_token_ids.map(|token_ids| {
             // Mint tokens.
             self.storage_mut()
-                .mint_many(&recipient, &token_ids, &token_metas);
+                .mint_many(recipient, &token_ids, &token_metas);
 
             // Emit event.
             self.storage_mut().emit(CEP47Event::Mint {
-                recipient: recipient.clone(),
+                recipient: *recipient,
                 token_ids,
             });
         })
@@ -151,11 +151,11 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
 
     fn burn_many(&mut self, owner: &Key, token_ids: Vec<TokenId>) {
         self.storage_mut().burn_many(owner, &token_ids);
-        
+
         // Emit burn event.
         self.storage_mut().emit(CEP47Event::Burn {
-            owner: owner.clone(),
-            token_ids: token_ids.clone(),
+            owner: *owner,
+            token_ids,
         });
     }
 
@@ -178,7 +178,7 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         if self.is_paused() {
             return Err(Error::PermissionDenied);
         }
-        let mut sender_tokens = self.storage().get_tokens(&sender);
+        let mut sender_tokens = self.storage().get_tokens(sender);
 
         for token_id in token_ids.iter() {
             if !sender_tokens.contains(token_id) {
@@ -186,16 +186,15 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
             }
             sender_tokens.retain(|x| x != token_id);
         }
-        let mut recipient_tokens = self.storage().get_tokens(&recipient);
+        let mut recipient_tokens = self.storage().get_tokens(recipient);
         recipient_tokens.append(&mut token_ids.clone());
-        self.storage_mut().set_tokens(&sender, sender_tokens);
-        self.storage_mut().set_tokens(&recipient, recipient_tokens);
+        self.storage_mut().set_tokens(sender, sender_tokens);
+        self.storage_mut().set_tokens(recipient, recipient_tokens);
 
         // Emit transfer event.
-        let package = self.storage().contact_package_hash();
         self.storage_mut().emit(CEP47Event::Transfer {
-            sender: sender.clone(),
-            recipient: recipient.clone(),
+            sender: *sender,
+            recipient: *recipient,
             token_ids: token_ids.clone(),
         });
         Ok(())
@@ -205,18 +204,17 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         if self.is_paused() {
             return Err(Error::PermissionDenied);
         }
-        let mut sender_tokens = self.storage().get_tokens(&sender);
-        let mut recipient_tokens = self.storage().get_tokens(&recipient);
+        let mut sender_tokens = self.storage().get_tokens(sender);
+        let mut recipient_tokens = self.storage().get_tokens(recipient);
         recipient_tokens.append(&mut sender_tokens);
 
-        self.storage_mut()
-            .set_tokens(&sender, sender_tokens.clone());
-        self.storage_mut().set_tokens(&recipient, recipient_tokens);
+        self.storage_mut().set_tokens(sender, sender_tokens.clone());
+        self.storage_mut().set_tokens(recipient, recipient_tokens);
 
         // Emit transfer event.
         self.storage_mut().emit(CEP47Event::Transfer {
-            sender: sender.clone(),
-            recipient: recipient.clone(),
+            sender: *sender,
+            recipient: *recipient,
             token_ids: sender_tokens,
         });
 

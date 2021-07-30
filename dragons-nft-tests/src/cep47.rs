@@ -149,13 +149,13 @@ impl CasperCEP47Contract {
 
     pub fn balance_of(&self, owner: &AccountHash) -> U256 {
         let value: Option<U256> = self.query_dictionary_value(BALANCES_DICT, owner.to_string());
-        value.unwrap_or(U256::zero())
+        value.unwrap_or_default()
     }
 
     pub fn tokens(&self, owner: &AccountHash) -> Vec<TokenId> {
         let value: Option<Vec<TokenId>> =
             self.query_dictionary_value(OWNED_TOKENS_DICT, owner.to_string());
-        value.unwrap_or(Vec::new())
+        value.unwrap_or_default()
     }
 
     pub fn token_meta(&self, token_id: &TokenId) -> Option<Meta> {
@@ -174,7 +174,7 @@ impl CasperCEP47Contract {
             "mint_one",
             runtime_args! {
                 "recipient" => Key::from(*recipient),
-                "token_id" => token_id.map(|id| id.clone()),
+                "token_id" => token_id.cloned(),
                 "token_meta" => token_meta.clone()
             },
         );
@@ -193,7 +193,7 @@ impl CasperCEP47Contract {
             "mint_copies",
             runtime_args! {
                 "recipient" => Key::from(*recipient),
-                "token_ids" => token_ids.map(|ids| ids.clone()),
+                "token_ids" => token_ids.cloned(),
                 "token_meta" => token_meta.clone(),
                 "count" => count
             },
@@ -212,7 +212,7 @@ impl CasperCEP47Contract {
             "mint_many",
             runtime_args! {
                 "recipient" => Key::from(*recipient),
-                "token_ids" => token_ids.map(|ids| ids.clone()),
+                "token_ids" => token_ids.cloned(),
                 "token_metas" => token_metas.clone(),
             },
         );

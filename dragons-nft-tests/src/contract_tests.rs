@@ -135,14 +135,8 @@ fn test_mint_copies() {
     assert_eq!(contract.total_supply(), U256::from(3));
     assert_eq!(contract.balance_of(&contract.ali), U256::from(3));
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(3));
-    assert_eq!(
-        contract.owner_of(&ali_tokens[0]),
-        Some(contract.ali.clone())
-    );
-    assert_eq!(
-        contract.owner_of(&ali_tokens[1]),
-        Some(contract.ali.clone())
-    );
+    assert_eq!(contract.owner_of(&ali_tokens[0]), Some(contract.ali));
+    assert_eq!(contract.owner_of(&ali_tokens[1]), Some(contract.ali));
     assert_eq!(contract.owner_of(&ali_tokens[2]), Some(contract.ali));
 }
 
@@ -217,7 +211,7 @@ fn test_burn_one() {
 
     contract.burn_one(
         &contract.ali.clone(),
-        &ali_tokens.first().unwrap(),
+        ali_tokens.first().unwrap(),
         &contract.admin.clone(),
     );
     assert_eq!(contract.total_supply(), U256::from(1));
@@ -245,14 +239,8 @@ fn test_transfer_token() {
     assert_eq!(contract.balance_of(&contract.ali), U256::from(1));
     assert_eq!(contract.balance_of(&contract.bob), U256::from(1));
     assert_eq!(contract.total_supply(), U256::from(2));
-    assert_eq!(
-        contract.owner_of(&ali_tokens[0]),
-        Some(contract.ali.clone())
-    );
-    assert_eq!(
-        contract.owner_of(&ali_tokens[1]),
-        Some(contract.bob.clone())
-    );
+    assert_eq!(contract.owner_of(&ali_tokens[0]), Some(contract.ali));
+    assert_eq!(contract.owner_of(&ali_tokens[1]), Some(contract.bob));
 }
 
 #[test]
@@ -279,18 +267,9 @@ fn test_transfer_many_tokens() {
     assert_eq!(contract.balance_of(&contract.ali), U256::from(1));
     assert_eq!(contract.balance_of(&contract.bob), U256::from(2));
     assert_eq!(contract.total_supply(), U256::from(3));
-    assert_eq!(
-        contract.owner_of(&ali_tokens[0]),
-        Some(contract.bob.clone())
-    );
-    assert_eq!(
-        contract.owner_of(&ali_tokens[1]),
-        Some(contract.bob.clone())
-    );
-    assert_eq!(
-        contract.owner_of(&ali_tokens[2]),
-        Some(contract.ali.clone())
-    );
+    assert_eq!(contract.owner_of(&ali_tokens[0]), Some(contract.bob));
+    assert_eq!(contract.owner_of(&ali_tokens[1]), Some(contract.bob));
+    assert_eq!(contract.owner_of(&ali_tokens[2]), Some(contract.ali));
 }
 
 #[test]
@@ -311,14 +290,8 @@ fn test_transfer_all_tokens() {
     assert_eq!(contract.balance_of(&contract.bob), U256::from(2));
     assert_eq!(contract.total_supply(), U256::from(2));
 
-    assert_eq!(
-        contract.owner_of(&ali_tokens[0]),
-        Some(contract.bob.clone())
-    );
-    assert_eq!(
-        contract.owner_of(&ali_tokens[1]),
-        Some(contract.bob.clone())
-    );
+    assert_eq!(contract.owner_of(&ali_tokens[0]), Some(contract.bob));
+    assert_eq!(contract.owner_of(&ali_tokens[1]), Some(contract.bob));
 }
 
 #[test]

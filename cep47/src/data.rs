@@ -43,7 +43,6 @@ impl Dict {
     pub fn remove<T: CLTyped + ToBytes>(&self, key: &str) {
         storage::dictionary_put(self.uref, key, Option::<T>::None);
     }
-
 }
 
 pub struct Balances {
@@ -58,15 +57,15 @@ impl Balances {
     }
 
     pub fn get(&self, key: &Key) -> U256 {
-        self.dict.get(&key_to_str(&key)).unwrap_or_default()
+        self.dict.get(&key_to_str(key)).unwrap_or_default()
     }
 
     pub fn set(&self, key: &Key, value: U256) {
-        self.dict.set(&key_to_str(&key), value);
+        self.dict.set(&key_to_str(key), value);
     }
 
     // pub fn remove(&self, key: &Key) {
-    //     self.dict.remove::<U256>(&key_to_str(&key));
+    //     self.dict.remove::<U256>(&key_to_str(key));
     // }
 }
 
@@ -82,15 +81,15 @@ impl OwnedTokens {
     }
 
     pub fn get(&self, key: &Key) -> Vec<TokenId> {
-        self.dict.get(&key_to_str(&key)).unwrap_or(Vec::new())
+        self.dict.get(&key_to_str(key)).unwrap_or_default()
     }
 
     pub fn set(&self, key: &Key, value: Vec<TokenId>) {
-        self.dict.set(&key_to_str(&key), value);
+        self.dict.set(&key_to_str(key), value);
     }
 
     // pub fn remove(&self, key: &Key) {
-    //     self.dict.remove::<TokenId>(&key_to_str(&key));
+    //     self.dict.remove::<TokenId>(&key_to_str(key));
     // }
 }
 
@@ -268,11 +267,8 @@ pub fn emit(event: &CEP47Event) {
                 event.insert("token_id", token_id.to_string());
                 events.push(event);
             }
-        },
-        CEP47Event::Burn {
-            owner,
-            token_ids
-        } => {
+        }
+        CEP47Event::Burn { owner, token_ids } => {
             for token_id in token_ids {
                 let mut event = BTreeMap::new();
                 event.insert("contract_package_hash", package.to_string());

@@ -40,6 +40,7 @@ pub use entrypoints::get_entrypoints;
 
 use data::{Balances, Metadata, OwnedTokens, Owners};
 
+#[derive(Default)]
 pub struct CasperCEP47Contract {
     storage: CasperCEP47Storage,
 }

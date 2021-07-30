@@ -4,6 +4,7 @@ use cep47_logic::{CEP47Storage, Meta, TokenId};
 
 use crate::data::{self, Balances, Metadata, OwnedTokens, Owners};
 
+#[derive(Default)]
 pub struct CasperCEP47Storage {}
 impl CasperCEP47Storage {
     pub fn new() -> CasperCEP47Storage {
@@ -64,16 +65,16 @@ impl CEP47Storage for CasperCEP47Storage {
 
         // Update the owner for each token.
         for token_id in &token_ids {
-            owners_dict.set(token_id, owner.clone());
+            owners_dict.set(token_id, *owner);
         }
 
         // Update balance of the owner.
-        let prev_balance = balances_dict.get(&owner);
+        let prev_balance = balances_dict.get(owner);
         let new_balance = U256::from(token_ids.len() as u64);
         balances_dict.set(owner, new_balance);
 
         // Update owner's list of tokens.
-        owned_tokens_dict.set(&owner, token_ids);
+        owned_tokens_dict.set(owner, token_ids);
 
         // Update total_supply.
         let new_total_supply = data::total_supply() - prev_balance + new_balance;
@@ -88,7 +89,7 @@ impl CEP47Storage for CasperCEP47Storage {
         let metadata_dict = Metadata::instance();
 
         // Load recipient's tokens.
-        let mut recipient_tokens = owned_tokens_dict.get(&recipient);
+        let mut recipient_tokens = owned_tokens_dict.get(recipient);
 
         // Create new tokens.
         for (token_id, token_meta) in token_ids.iter().zip(token_metas) {
@@ -96,7 +97,7 @@ impl CEP47Storage for CasperCEP47Storage {
             metadata_dict.set(token_id, token_meta.clone());
 
             // Set token owner.
-            owners_dict.set(token_id, recipient.clone());
+            owners_dict.set(token_id, *recipient);
 
             // Update current list of recipient's tokens.
             recipient_tokens.push(token_id.clone());
@@ -137,10 +138,10 @@ impl CEP47Storage for CasperCEP47Storage {
             owner_tokens.remove(index);
 
             // TODO: Remove meta.
-            metadata_dict.remove(&token_id);
-            
+            metadata_dict.remove(token_id);
+
             // TODO: Remove ownership.
-            owners_dict.remove(&token_id);
+            owners_dict.remove(token_id);
         }
 
         // Decrement owner's balance.

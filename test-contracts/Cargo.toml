@@ -16,6 +16,13 @@ bench = false
 doctest = false
 test = false
 
+[[bin]]
+name = "owning-contract"
+path = "src/owning_contract.rs"
+bench = false
+doctest = false
+test = false
+
 [features]
 default = ["casper-contract/std", "casper-types/std"]
 

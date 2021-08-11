@@ -420,3 +420,93 @@ fn test_contract_owning_token() {
         U256::from(1)
     );
 }
+
+#[test]
+#[should_panic = "ApiError::User(1)"]
+fn test_pausing_contract() {
+    let mut contract = CasperCEP47Contract::deploy();
+    let token_metas: Vec<Meta> = vec![meta::gold_dragon(), meta::red_dragon()];
+    contract.mint_many(
+        &contract.ali.clone(),
+        None,
+        &token_metas,
+        &contract.admin.clone(),
+    );
+    contract.pause(&contract.admin.clone());
+    let ali_tokens = contract.tokens(&Key::Account(contract.ali));
+
+    // Test panics here, since contract is paused and a generic user is trying to call a non-admin function
+    contract.transfer_token(
+        &Key::Account(contract.bob),
+        &ali_tokens[1],
+        &contract.ali.clone(),
+    );
+}
+
+#[test]
+fn test_pausing_and_unpausing_contract() {
+    let mut contract = CasperCEP47Contract::deploy();
+    let token_metas: Vec<Meta> = vec![meta::gold_dragon(), meta::red_dragon()];
+    contract.mint_many(
+        &contract.ali.clone(),
+        None,
+        &token_metas,
+        &contract.admin.clone(),
+    );
+    // deployer can pause the contract
+    contract.pause(&contract.admin.clone());
+
+    let ali_tokens = contract.tokens(&Key::Account(contract.ali));
+    // admin functions still work even while paused
+    contract.burn_one(
+        &contract.ali.clone(),
+        &ali_tokens[1],
+        &contract.admin.clone(),
+    );
+    // only deployer can unpause
+    contract.unpause(&contract.admin.clone());
+    // then normal function can continue
+    contract.transfer_token(
+        &Key::Account(contract.bob),
+        &ali_tokens[0],
+        &contract.ali.clone(),
+    );
+
+    assert_eq!(contract.total_supply(), U256::from(1));
+    assert_eq!(
+        contract.balance_of(&Key::Account(contract.ali)),
+        U256::from(0)
+    );
+
+    let ali_tokens = contract.tokens(&Key::Account(contract.ali));
+    let bob_tokens = contract.tokens(&Key::Account(contract.bob));
+    assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(0));
+    assert_eq!(U256::from(bob_tokens.len() as u64), U256::from(1));
+}
+
+#[test]
+#[should_panic = "InvalidContext"]
+fn test_pausing_contract_unauthorized() {
+    // generic user cannot pause the contract
+    let mut contract = CasperCEP47Contract::deploy();
+    contract.pause(&contract.ali.clone());
+}
+
+#[test]
+#[should_panic = "InvalidContext"]
+fn test_unpausing_contract_unauthorized() {
+    // admin can pause the contract, but generic user cannot unpause
+    let mut contract = CasperCEP47Contract::deploy();
+    contract.pause(&contract.admin.clone());
+    contract.unpause(&contract.ali.clone());
+}
+
+#[test]
+fn test_paused_field() {
+    let mut contract = CasperCEP47Contract::deploy();
+    assert!(!contract.is_paused());
+    contract.pause(&contract.admin.clone());
+    assert!(contract.is_paused());
+    contract.unpause(&contract.admin.clone());
+    assert!(!contract.is_paused());
+}

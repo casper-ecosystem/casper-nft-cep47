@@ -3,6 +3,8 @@ prepare:
 
 build-contract:
 	cargo build --release -p test-contracts --target wasm32-unknown-unknown
+	wasm-strip target/wasm32-unknown-unknown/release/dragons-nft.wasm 2>/dev/null | true
+	wasm-strip target/wasm32-unknown-unknown/release/owning-contract.wasm 2>/dev/null | true
 
 test-only:
 	cargo test -p cep47-logic

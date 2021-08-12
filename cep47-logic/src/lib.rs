@@ -146,7 +146,7 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
     }
 
     fn burn_one(&mut self, owner: &Key, token_id: TokenId) {
-        self.storage_mut().burn_many(owner, &vec![token_id]);
+        self.burn_many(owner, vec![token_id]);
     }
 
     fn burn_many(&mut self, owner: &Key, token_ids: Vec<TokenId>) {

@@ -159,7 +159,7 @@ impl CasperCEP47Contract {
     }
 
     pub fn total_supply(&self) -> U256 {
-        self.query_contract("total_supply").unwrap_or_default()
+        self.query_contract("total_supply").unwrap()
     }
 
     pub fn owner_of(&self, token_id: &TokenId) -> Key {
@@ -337,6 +337,18 @@ impl CasperCEP47Contract {
                 "token_meta" => meta.clone()
             },
         );
+    }
+
+    pub fn pause(&mut self, sender: &AccountHash) {
+        self.call(sender, "pause", runtime_args! {});
+    }
+
+    pub fn unpause(&mut self, sender: &AccountHash) {
+        self.call(sender, "unpause", runtime_args! {});
+    }
+
+    pub fn is_paused(&mut self) -> bool {
+        self.query_contract("paused").unwrap()
     }
 
     fn key_to_str(key: &Key) -> String {

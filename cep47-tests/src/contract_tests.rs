@@ -58,6 +58,7 @@ fn test_token_meta() {
 
     let ali_tokens: Vec<TokenId> = contract.tokens(&Key::Account(contract.ali));
     assert_eq!(ali_tokens, vec![token_id]);
+    assert_eq!(contract.get_events().len(), 1);
 }
 
 #[test]
@@ -83,6 +84,7 @@ fn test_mint_one_with_random_token_id() {
         contract.owner_of(&ali_tokens[0]),
         Key::Account(contract.ali)
     );
+    assert_eq!(contract.get_events().len(), 1);
 }
 
 #[test]
@@ -106,6 +108,7 @@ fn test_mint_one_with_set_token_id() {
     );
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::one());
     assert_eq!(contract.owner_of(&token_id), Key::Account(contract.ali));
+    assert_eq!(contract.get_events().len(), 1);
 }
 
 #[test]
@@ -120,6 +123,7 @@ fn test_mint_one_with_not_unique_token_id() {
         &token_meta,
         &contract.admin.clone(),
     );
+    assert_eq!(contract.get_events().len(), 1);
     contract.mint_one(
         &Key::Account(contract.ali),
         Some(&token_id),
@@ -159,6 +163,7 @@ fn test_mint_copies() {
         contract.owner_of(&ali_tokens[2]),
         Key::Account(contract.ali)
     );
+    assert_eq!(contract.get_events().len(), 3);
 }
 
 #[test]
@@ -188,6 +193,7 @@ fn test_mint_many() {
         contract.owner_of(&ali_tokens[1]),
         Key::Account(contract.ali)
     );
+    assert_eq!(contract.get_events().len(), 2);
 }
 
 #[test]
@@ -227,6 +233,7 @@ fn test_burn_many() {
     let ali_tokens = contract.tokens(&Key::Account(contract.ali));
     println!("{:?}", ali_tokens);
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(2));
+    assert_eq!(contract.get_events().len(), 6);
 }
 
 #[test]
@@ -255,6 +262,7 @@ fn test_burn_one() {
 
     let ali_tokens = contract.tokens(&Key::Account(contract.ali));
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(1));
+    assert_eq!(contract.get_events().len(), 3);
 }
 
 #[test]
@@ -293,6 +301,7 @@ fn test_transfer_token() {
         contract.owner_of(&ali_tokens[1]),
         Key::Account(contract.bob)
     );
+    assert_eq!(contract.get_events().len(), 3);
 }
 
 #[test]
@@ -337,6 +346,7 @@ fn test_transfer_many_tokens() {
         contract.owner_of(&ali_tokens[2]),
         Key::Account(contract.ali)
     );
+    assert_eq!(contract.get_events().len(), 5);
 }
 
 #[test]
@@ -371,6 +381,10 @@ fn test_transfer_all_tokens() {
         contract.owner_of(&ali_tokens[1]),
         Key::Account(contract.bob)
     );
+    for e in contract.get_events() {
+        println!("{:?}", e);
+    }
+    assert_eq!(contract.get_events().len(), 4);
 }
 
 #[test]
@@ -387,6 +401,7 @@ fn test_token_metadata_update() {
 
     contract.update_token_metadata(&token_id, &meta::blue_dragon(), &contract.admin.clone());
     assert_eq!(contract.token_meta(&token_id).unwrap(), meta::blue_dragon());
+    assert_eq!(contract.get_events().len(), 2);
 }
 
 #[test]
@@ -419,6 +434,7 @@ fn test_contract_owning_token() {
         contract.balance_of(&Key::Account(contract.ali)),
         U256::from(1)
     );
+    assert_eq!(contract.get_events().len(), 2);
 }
 
 #[test]
@@ -441,6 +457,7 @@ fn test_pausing_contract() {
         &ali_tokens[1],
         &contract.ali.clone(),
     );
+    assert_eq!(contract.get_events().len(), 3);
 }
 
 #[test]
@@ -482,6 +499,7 @@ fn test_pausing_and_unpausing_contract() {
     let bob_tokens = contract.tokens(&Key::Account(contract.bob));
     assert_eq!(U256::from(ali_tokens.len() as u64), U256::from(0));
     assert_eq!(U256::from(bob_tokens.len() as u64), U256::from(1));
+    assert_eq!(contract.get_events().len(), 6);
 }
 
 #[test]
@@ -490,6 +508,7 @@ fn test_pausing_contract_unauthorized() {
     // generic user cannot pause the contract
     let mut contract = CasperCEP47Contract::deploy();
     contract.pause(&contract.ali.clone());
+    assert_eq!(contract.get_events().len(), 1);
 }
 
 #[test]
@@ -499,6 +518,7 @@ fn test_unpausing_contract_unauthorized() {
     let mut contract = CasperCEP47Contract::deploy();
     contract.pause(&contract.admin.clone());
     contract.unpause(&contract.ali.clone());
+    assert_eq!(contract.get_events().len(), 2);
 }
 
 #[test]
@@ -509,4 +529,5 @@ fn test_paused_field() {
     assert!(contract.is_paused());
     contract.unpause(&contract.admin.clone());
     assert!(!contract.is_paused());
+    assert_eq!(contract.get_events().len(), 2);
 }

@@ -305,6 +305,16 @@ pub fn emit(event: &CEP47Event) {
                 events_count += 1;
             }
         }
+        CEP47Event::Paused { is_paused } => {
+            let mut event = BTreeMap::new();
+            let event_id = events_count.to_string();
+            event.insert("event_id", event_id.clone());
+            event.insert("contract_package_hash", package.to_string());
+            event.insert("event_type", "paused".to_string());
+            event.insert("is_paused", is_paused.to_string());
+            events.push((event_id, event));
+            events_count += 1;
+        }
     };
 
     let events_dict = Dict::at(EVENTS_DICT);

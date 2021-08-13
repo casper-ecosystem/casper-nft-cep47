@@ -78,10 +78,14 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
 
     fn pause(&mut self) {
         self.storage_mut().pause();
+        self.storage_mut()
+            .emit(CEP47Event::Paused { is_paused: true });
     }
 
     fn unpause(&mut self) {
         self.storage_mut().unpause();
+        self.storage_mut()
+            .emit(CEP47Event::Paused { is_paused: false });
     }
 
     // Minter function.
@@ -205,17 +209,18 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
             return Err(Error::PermissionDenied);
         }
         let mut sender_tokens = self.storage().get_tokens(sender);
+        let emit_tokens = sender_tokens.clone();
         let mut recipient_tokens = self.storage().get_tokens(recipient);
         recipient_tokens.append(&mut sender_tokens);
 
-        self.storage_mut().set_tokens(sender, sender_tokens.clone());
+        self.storage_mut().set_tokens(sender, sender_tokens);
         self.storage_mut().set_tokens(recipient, recipient_tokens);
 
         // Emit transfer event.
         self.storage_mut().emit(CEP47Event::Transfer {
             sender: *sender,
             recipient: *recipient,
-            token_ids: sender_tokens,
+            token_ids: emit_tokens,
         });
 
         Ok(())

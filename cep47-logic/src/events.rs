@@ -21,4 +21,7 @@ pub enum CEP47Event {
         owner: Key,
         token_ids: Vec<TokenId>,
     },
+    Paused {
+        is_paused: bool,
+    },
 }

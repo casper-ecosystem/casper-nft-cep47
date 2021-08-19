@@ -15,7 +15,6 @@ use casper_types::{
 use cep47_logic::{events::CEP47Event, Meta, TokenId};
 
 const BALANCES_DICT: &str = "balances";
-const OWNED_TOKENS_DICT: &str = "owned_tokens";
 const TOKEN_OWNERS_DICT: &str = "owners";
 const METADATA_DICT: &str = "metadata";
 const EVENTS_DICT: &str = "events";
@@ -67,30 +66,6 @@ impl Balances {
 
     // pub fn remove(&self, key: &Key) {
     //     self.dict.remove::<U256>(&key_to_str(key));
-    // }
-}
-
-pub struct OwnedTokens {
-    dict: Dict,
-}
-
-impl OwnedTokens {
-    pub fn instance() -> OwnedTokens {
-        OwnedTokens {
-            dict: Dict::at(OWNED_TOKENS_DICT),
-        }
-    }
-
-    pub fn get(&self, key: &Key) -> Vec<TokenId> {
-        self.dict.get(&key_to_str(key)).unwrap_or_default()
-    }
-
-    pub fn set(&self, key: &Key, value: Vec<TokenId>) {
-        self.dict.set(&key_to_str(key), value);
-    }
-
-    // pub fn remove(&self, key: &Key) {
-    //     self.dict.remove::<TokenId>(&key_to_str(key));
     // }
 }
 
@@ -217,7 +192,6 @@ pub fn initial_named_keys(
 
     // Add empty dictionaries.
     add_empty_dict(&mut named_keys, BALANCES_DICT);
-    add_empty_dict(&mut named_keys, OWNED_TOKENS_DICT);
     add_empty_dict(&mut named_keys, TOKEN_OWNERS_DICT);
     add_empty_dict(&mut named_keys, METADATA_DICT);
     add_empty_dict(&mut named_keys, EVENTS_DICT);

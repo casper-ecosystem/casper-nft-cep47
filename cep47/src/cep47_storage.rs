@@ -2,7 +2,7 @@ use casper_contract::{contract_api::runtime, unwrap_or_revert::UnwrapOrRevert};
 use casper_types::{bytesrepr::ToBytes, ApiError, Key, U256};
 use cep47_logic::{CEP47Storage, Meta, TokenId};
 
-use crate::data::{self, Balances, Metadata, OwnedTokens, Owners};
+use crate::data::{self, Balances, Metadata, Owners};
 
 #[derive(Default)]
 pub struct CasperCEP47Storage {}
@@ -53,43 +53,11 @@ impl CEP47Storage for CasperCEP47Storage {
         data::unpause();
     }
 
-    fn get_tokens(&self, owner: &Key) -> Vec<TokenId> {
-        OwnedTokens::instance().get(owner)
-    }
-
-    fn set_tokens(&mut self, owner: &Key, token_ids: Vec<TokenId>) {
-        // Prepare dictionaries.
-        let owners_dict = Owners::instance();
-        let owned_tokens_dict = OwnedTokens::instance();
-        let balances_dict = Balances::instance();
-
-        // Update the owner for each token.
-        for token_id in &token_ids {
-            owners_dict.set(token_id, *owner);
-        }
-
-        // Update balance of the owner.
-        let prev_balance = balances_dict.get(owner);
-        let new_balance = U256::from(token_ids.len() as u64);
-        balances_dict.set(owner, new_balance);
-
-        // Update owner's list of tokens.
-        owned_tokens_dict.set(owner, token_ids);
-
-        // Update total_supply.
-        let new_total_supply = data::total_supply() - prev_balance + new_balance;
-        data::update_total_supply(new_total_supply);
-    }
-
     fn mint_many(&mut self, recipient: &Key, token_ids: &Vec<TokenId>, token_metas: &Vec<Meta>) {
         // Prepare dictionaries.
         let owners_dict = Owners::instance();
-        let owned_tokens_dict = OwnedTokens::instance();
         let balances_dict = Balances::instance();
         let metadata_dict = Metadata::instance();
-
-        // Load recipient's tokens.
-        let mut recipient_tokens = owned_tokens_dict.get(recipient);
 
         // Create new tokens.
         for (token_id, token_meta) in token_ids.iter().zip(token_metas) {
@@ -98,13 +66,7 @@ impl CEP47Storage for CasperCEP47Storage {
 
             // Set token owner.
             owners_dict.set(token_id, *recipient);
-
-            // Update current list of recipient's tokens.
-            recipient_tokens.push(token_id.clone());
         }
-
-        // Update owned tokens.
-        owned_tokens_dict.set(recipient, recipient_tokens);
 
         // Update recipient's balance.
         let new_tokens_count: U256 = token_ids.len().into();
@@ -117,42 +79,47 @@ impl CEP47Storage for CasperCEP47Storage {
         data::update_total_supply(new_total_supply);
     }
 
+    fn transfer_many(&mut self, sender: &Key, recipient: &Key, token_ids: &Vec<TokenId>) {
+        // Prepare dictionaries.
+        let owners_dict = Owners::instance();
+        let balances_dict = Balances::instance();
+
+        // Update ownerships.
+        for token_id in token_ids {
+            owners_dict.set(token_id, *recipient);
+        }
+
+        // Update balances.
+        let amount = token_ids.len();
+        let sender_balance = balances_dict.get(sender);
+        let recipient_balance = balances_dict.get(recipient);
+        balances_dict.set(sender, sender_balance - amount);
+        balances_dict.set(recipient, recipient_balance + amount);
+    }
+
     fn burn_many(&mut self, owner: &Key, token_ids: &Vec<TokenId>) {
         // Prepare dictionaries.
         let owners_dict = Owners::instance();
-        let owned_tokens_dict = OwnedTokens::instance();
         let balances_dict = Balances::instance();
         let metadata_dict = Metadata::instance();
 
-        // Load owner's tokens.
-        let mut owner_tokens = owned_tokens_dict.get(owner);
-
         // Remove tokens.
         for token_id in token_ids {
-            // Remove token from the owner's list.
-            // Make sure that token is owned by the recipient.
-            let index = owner_tokens
-                .iter()
-                .position(|x| x == token_id)
-                .unwrap_or_revert();
-            owner_tokens.remove(index);
-
-            // TODO: Remove meta.
+            // Remove meta.
             metadata_dict.remove(token_id);
 
-            // TODO: Remove ownership.
+            // Remove ownership.
             owners_dict.remove(token_id);
         }
 
         // Decrement owner's balance.
-        balances_dict.set(owner, owner_tokens.len().into());
-
-        // Update owner's tokens.
-        owned_tokens_dict.set(owner, owner_tokens);
+        let amount: U256 = token_ids.len().into();
+        let prev_balance = balances_dict.get(owner);
+        let new_balance = prev_balance - amount;
+        balances_dict.set(owner, new_balance);
 
         // Decrement total supply.
-        let remove_tokens_count: U256 = token_ids.len().into();
-        let new_total_supply = data::total_supply() - remove_tokens_count;
+        let new_total_supply = data::total_supply() - amount;
         data::update_total_supply(new_total_supply);
     }
 

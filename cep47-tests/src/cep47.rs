@@ -24,7 +24,6 @@ pub const CONTRACT_KEY: &str = "DragonsNFT_contract";
 pub const CONTRACT_HASH_KEY: &str = "DragonsNFT_contract_hash";
 
 const BALANCES_DICT: &str = "balances";
-const OWNED_TOKENS_DICT: &str = "owned_tokens";
 const TOKEN_OWNERS_DICT: &str = "owners";
 const METADATA_DICT: &str = "metadata";
 
@@ -162,20 +161,13 @@ impl CasperCEP47Contract {
         self.query_contract("total_supply").unwrap()
     }
 
-    pub fn owner_of(&self, token_id: &TokenId) -> Key {
+    pub fn owner_of(&self, token_id: &TokenId) -> Option<Key> {
         self.query_dictionary_value::<Key>(TOKEN_OWNERS_DICT, token_id.clone())
-            .unwrap()
     }
 
     pub fn balance_of(&self, owner: &Key) -> U256 {
         let value: Option<U256> =
             self.query_dictionary_value(BALANCES_DICT, Self::key_to_str(owner));
-        value.unwrap_or_default()
-    }
-
-    pub fn tokens(&self, owner: &Key) -> Vec<TokenId> {
-        let value: Option<Vec<TokenId>> =
-            self.query_dictionary_value(OWNED_TOKENS_DICT, Self::key_to_str(owner));
         value.unwrap_or_default()
     }
 
@@ -203,7 +195,7 @@ impl CasperCEP47Contract {
 
     pub fn mint_copies(
         &mut self,
-        recipient: &AccountHash,
+        recipient: &Key,
         token_ids: Option<&Vec<TokenId>>,
         token_meta: &Meta,
         count: u32,
@@ -213,7 +205,7 @@ impl CasperCEP47Contract {
             sender,
             "mint_copies",
             runtime_args! {
-                "recipient" => Key::from(*recipient),
+                "recipient" => *recipient,
                 "token_ids" => token_ids.cloned(),
                 "token_meta" => token_meta.clone(),
                 "count" => count
@@ -223,7 +215,7 @@ impl CasperCEP47Contract {
 
     pub fn mint_many(
         &mut self,
-        recipient: &AccountHash,
+        recipient: &Key,
         token_ids: Option<&Vec<TokenId>>,
         token_metas: &Vec<Meta>,
         sender: &AccountHash,
@@ -232,35 +224,30 @@ impl CasperCEP47Contract {
             sender,
             "mint_many",
             runtime_args! {
-                "recipient" => Key::from(*recipient),
+                "recipient" => *recipient,
                 "token_ids" => token_ids.cloned(),
                 "token_metas" => token_metas.clone(),
             },
         );
     }
 
-    pub fn burn_many(
-        &mut self,
-        owner: &AccountHash,
-        token_ids: &Vec<TokenId>,
-        sender: &AccountHash,
-    ) {
+    pub fn burn_many(&mut self, owner: &Key, token_ids: &Vec<TokenId>, sender: &AccountHash) {
         self.call(
             sender,
             "burn_many",
             runtime_args! {
-                "owner" => Key::from(*owner),
+                "owner" => *owner,
                 "token_ids" => token_ids.clone()
             },
         );
     }
 
-    pub fn burn_one(&mut self, owner: &AccountHash, token_id: &TokenId, sender: &AccountHash) {
+    pub fn burn_one(&mut self, owner: &Key, token_id: &TokenId, sender: &AccountHash) {
         self.call(
             sender,
             "burn_one",
             runtime_args! {
-                "owner" => Key::from(*owner),
+                "owner" => *owner,
                 "token_id" => token_id.clone()
             },
         );
@@ -304,7 +291,7 @@ impl CasperCEP47Contract {
 
     pub fn transfer_many_tokens(
         &mut self,
-        recipient: &AccountHash,
+        recipient: &Key,
         token_ids: &Vec<TokenId>,
         sender: &AccountHash,
     ) {
@@ -312,18 +299,8 @@ impl CasperCEP47Contract {
             sender,
             "transfer_many_tokens",
             runtime_args! {
-                "recipient" => Key::from(*recipient),
+                "recipient" => *recipient,
                 "token_ids" => token_ids.clone()
-            },
-        );
-    }
-
-    pub fn transfer_all_tokens(&mut self, recipient: &AccountHash, sender: &AccountHash) {
-        self.call(
-            sender,
-            "transfer_all_tokens",
-            runtime_args! {
-                "recipient" => Key::from(*recipient)
             },
         );
     }

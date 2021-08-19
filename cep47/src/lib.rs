@@ -41,7 +41,7 @@ mod entrypoints;
 pub use cep47_storage::CasperCEP47Storage;
 pub use entrypoints::get_entrypoints;
 
-use data::{Balances, Metadata, OwnedTokens, Owners};
+use data::{Balances, Metadata, Owners};
 
 #[derive(Default)]
 pub struct CasperCEP47Contract {
@@ -119,14 +119,6 @@ pub extern "C" fn token_meta() {
     ret(contract.token_meta(&token_id))
 }
 
-#[cfg(not(feature = "no_tokens"))]
-#[no_mangle]
-pub extern "C" fn tokens() {
-    let owner: Key = runtime::get_named_arg("owner");
-    let contract = CasperCEP47Contract::new();
-    ret(contract.tokens(&owner))
-}
-
 #[cfg(not(feature = "no_is_paused"))]
 #[no_mangle]
 pub extern "C" fn is_paused() {
@@ -191,7 +183,7 @@ pub extern "C" fn burn_many() {
     let owner: Key = runtime::get_named_arg("owner");
     let token_ids: Vec<TokenId> = runtime::get_named_arg("token_ids");
     let mut contract = CasperCEP47Contract::new();
-    contract.burn_many(&owner, token_ids);
+    contract.burn_many(&owner, token_ids).unwrap_or_revert();
 }
 
 #[cfg(not(feature = "no_burn_one"))]
@@ -200,7 +192,7 @@ pub extern "C" fn burn_one() {
     let owner: Key = runtime::get_named_arg("owner");
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let mut contract = CasperCEP47Contract::new();
-    contract.burn_one(&owner, token_id);
+    contract.burn_one(&owner, token_id).unwrap_or_revert();
 }
 
 #[cfg(not(feature = "no_transfer_token"))]
@@ -210,8 +202,9 @@ pub extern "C" fn transfer_token() {
     let recipient: Key = runtime::get_named_arg("recipient");
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let mut contract = CasperCEP47Contract::new();
-    let res = contract.transfer_token(&sender, &recipient, &token_id);
-    res.unwrap_or_revert();
+    contract
+        .transfer_token(&sender, &recipient, &token_id)
+        .unwrap_or_revert();
 }
 
 #[cfg(not(feature = "no_transfer_many_tokens"))]
@@ -221,18 +214,9 @@ pub extern "C" fn transfer_many_tokens() {
     let recipient: Key = runtime::get_named_arg("recipient");
     let token_ids: Vec<TokenId> = runtime::get_named_arg("token_ids");
     let mut contract = CasperCEP47Contract::new();
-    let res = contract.transfer_many_tokens(&sender, &recipient, &token_ids);
-    res.unwrap_or_revert();
-}
-
-#[cfg(not(feature = "no_transfer_all_tokens"))]
-#[no_mangle]
-pub extern "C" fn transfer_all_tokens() {
-    let sender: Key = get_caller();
-    let recipient: Key = runtime::get_named_arg("recipient");
-    let mut contract = CasperCEP47Contract::new();
-    let res = contract.transfer_all_tokens(&sender, &recipient);
-    res.unwrap_or_revert();
+    contract
+        .transfer_many_tokens(&sender, &recipient, &token_ids)
+        .unwrap_or_revert();
 }
 
 #[cfg(not(feature = "no_update_token_metadata"))]
@@ -241,8 +225,9 @@ pub extern "C" fn update_token_metadata() {
     let token_id: TokenId = runtime::get_named_arg("token_id");
     let meta: Meta = runtime::get_named_arg("token_meta");
     let mut contract = CasperCEP47Contract::new();
-    let res = contract.update_token_metadata(token_id, meta);
-    res.unwrap_or_revert();
+    contract
+        .update_token_metadata(token_id, meta)
+        .unwrap_or_revert();
 }
 
 pub fn deploy(

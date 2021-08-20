@@ -1,18 +1,9 @@
-use std::collections::{BTreeMap, BTreeSet};
-
-use casper_types::{account::AccountHash, ContractPackageHash, Key};
+use alloc::vec::Vec;
+use casper_types::Key;
 
 use crate::TokenId;
 
 pub enum CEP47Event {
-    MetadataUpdate {
-        token_id: TokenId,
-    },
-    Transfer {
-        sender: Key,
-        recipient: Key,
-        token_ids: Vec<TokenId>,
-    },
     Mint {
         recipient: Key,
         token_ids: Vec<TokenId>,
@@ -20,6 +11,19 @@ pub enum CEP47Event {
     Burn {
         owner: Key,
         token_ids: Vec<TokenId>,
+    },
+    Approve {
+        owner: Key,
+        spender: Key,
+        token_ids: Vec<TokenId>,
+    },
+    Transfer {
+        sender: Key,
+        recipient: Key,
+        token_ids: Vec<TokenId>,
+    },
+    MetadataUpdate {
+        token_id: TokenId,
     },
 }
 

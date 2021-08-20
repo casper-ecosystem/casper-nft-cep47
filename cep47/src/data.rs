@@ -15,7 +15,6 @@ use casper_types::{
 use cep47_logic::{events::CEP47Event, Meta, TokenId};
 
 const BALANCES_DICT: &str = "balances";
-const OWNED_TOKENS_DICT: &str = "owned_tokens";
 const TOKEN_OWNERS_DICT: &str = "owners";
 const METADATA_DICT: &str = "metadata";
 
@@ -66,30 +65,6 @@ impl Balances {
 
     // pub fn remove(&self, key: &Key) {
     //     self.dict.remove::<U256>(&key_to_str(key));
-    // }
-}
-
-pub struct OwnedTokens {
-    dict: Dict,
-}
-
-impl OwnedTokens {
-    pub fn instance() -> OwnedTokens {
-        OwnedTokens {
-            dict: Dict::at(OWNED_TOKENS_DICT),
-        }
-    }
-
-    pub fn get(&self, key: &Key) -> Vec<TokenId> {
-        self.dict.get(&key_to_str(key)).unwrap_or_default()
-    }
-
-    pub fn set(&self, key: &Key, value: Vec<TokenId>) {
-        self.dict.set(&key_to_str(key), value);
-    }
-
-    // pub fn remove(&self, key: &Key) {
-    //     self.dict.remove::<TokenId>(&key_to_str(key));
     // }
 }
 
@@ -208,7 +183,6 @@ pub fn initial_named_keys(
 
     // Add empty dictionaries.
     add_empty_dict(&mut named_keys, BALANCES_DICT);
-    add_empty_dict(&mut named_keys, OWNED_TOKENS_DICT);
     add_empty_dict(&mut named_keys, TOKEN_OWNERS_DICT);
     add_empty_dict(&mut named_keys, METADATA_DICT);
 
@@ -229,14 +203,14 @@ fn key_to_str(key: &Key) -> String {
     }
 }
 
-pub fn emit(event: &CEP47Event) {
+pub fn emit(cep47_event: &CEP47Event) {
     let mut events = Vec::new();
     let package = contract_package_hash();
-    match event {
+    match cep47_event {
         CEP47Event::MetadataUpdate { token_id } => {
             let mut event = BTreeMap::new();
             event.insert("contract_package_hash", package.to_string());
-            event.insert("event_type", "cep47_metadata_update".to_string());
+            event.insert("event_type", cep47_event.type_name());
             event.insert("token_id", token_id.to_string());
             events.push(event);
         }
@@ -248,7 +222,7 @@ pub fn emit(event: &CEP47Event) {
             for token_id in token_ids {
                 let mut event = BTreeMap::new();
                 event.insert("contract_package_hash", package.to_string());
-                event.insert("event_type", "cep47_transfer_token".to_string());
+                event.insert("event_type", cep47_event.type_name());
                 event.insert("sender", sender.to_string());
                 event.insert("recipient", recipient.to_string());
                 event.insert("token_id", token_id.to_string());
@@ -262,7 +236,7 @@ pub fn emit(event: &CEP47Event) {
             for token_id in token_ids {
                 let mut event = BTreeMap::new();
                 event.insert("contract_package_hash", package.to_string());
-                event.insert("event_type", "cep47_mint_one".to_string());
+                event.insert("event_type", cep47_event.type_name());
                 event.insert("recipient", recipient.to_string());
                 event.insert("token_id", token_id.to_string());
                 events.push(event);
@@ -272,7 +246,7 @@ pub fn emit(event: &CEP47Event) {
             for token_id in token_ids {
                 let mut event = BTreeMap::new();
                 event.insert("contract_package_hash", package.to_string());
-                event.insert("event_type", "cep47_burn_one".to_string());
+                event.insert("event_type", cep47_event.type_name());
                 event.insert("owner", owner.to_string());
                 event.insert("token_id", token_id.to_string());
                 events.push(event);

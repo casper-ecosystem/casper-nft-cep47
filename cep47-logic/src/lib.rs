@@ -18,12 +18,14 @@ use events::CEP47Event;
 pub type TokenId = String;
 pub type Meta = BTreeMap<String, String>;
 
+#[derive(Debug)]
 #[repr(u16)]
 pub enum Error {
     PermissionDenied = 1,
     ArgumentsError = 2,
     TokenIdAlreadyExists = 3,
     TokenIdDoesntExist = 4,
+    NotAnOwner = 5,
 }
 
 impl From<Error> for ApiError {
@@ -66,10 +68,6 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
 
     fn token_meta(&self, token_id: &TokenId) -> Option<Meta> {
         self.storage().token_meta(token_id)
-    }
-
-    fn tokens(&self, owner: &Key) -> Vec<TokenId> {
-        self.storage().get_tokens(owner)
     }
 
     fn is_paused(&self) -> bool {
@@ -145,11 +143,15 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         self.mint_many(recipient, token_ids, token_metas)
     }
 
-    fn burn_one(&mut self, owner: &Key, token_id: TokenId) {
-        self.storage_mut().burn_many(owner, &vec![token_id]);
+    fn burn_one(&mut self, owner: &Key, token_id: TokenId) -> Result<(), Error> {
+        self.burn_many(owner, vec![token_id])
     }
 
-    fn burn_many(&mut self, owner: &Key, token_ids: Vec<TokenId>) {
+    fn burn_many(&mut self, owner: &Key, token_ids: Vec<TokenId>) -> Result<(), Error> {
+        if !self.storage().are_all_owner_tokens(owner, &token_ids) {
+            return Err(Error::NotAnOwner);
+        }
+
         self.storage_mut().burn_many(owner, &token_ids);
 
         // Emit burn event.
@@ -157,6 +159,8 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
             owner: *owner,
             token_ids,
         });
+
+        Ok(())
     }
 
     // Transfer functions.
@@ -178,18 +182,13 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         if self.is_paused() {
             return Err(Error::PermissionDenied);
         }
-        let mut sender_tokens = self.storage().get_tokens(sender);
 
-        for token_id in token_ids.iter() {
-            if !sender_tokens.contains(token_id) {
-                return Err(Error::PermissionDenied);
-            }
-            sender_tokens.retain(|x| x != token_id);
+        if !self.storage().are_all_owner_tokens(sender, token_ids) {
+            return Err(Error::NotAnOwner);
         }
-        let mut recipient_tokens = self.storage().get_tokens(recipient);
-        recipient_tokens.append(&mut token_ids.clone());
-        self.storage_mut().set_tokens(sender, sender_tokens);
-        self.storage_mut().set_tokens(recipient, recipient_tokens);
+
+        self.storage_mut()
+            .transfer_many(sender, recipient, token_ids);
 
         // Emit transfer event.
         self.storage_mut().emit(CEP47Event::Transfer {
@@ -197,27 +196,6 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
             recipient: *recipient,
             token_ids: token_ids.clone(),
         });
-        Ok(())
-    }
-
-    fn transfer_all_tokens(&mut self, sender: &Key, recipient: &Key) -> Result<(), Error> {
-        if self.is_paused() {
-            return Err(Error::PermissionDenied);
-        }
-        let mut sender_tokens = self.storage().get_tokens(sender);
-        let mut recipient_tokens = self.storage().get_tokens(recipient);
-        recipient_tokens.append(&mut sender_tokens);
-
-        self.storage_mut().set_tokens(sender, sender_tokens.clone());
-        self.storage_mut().set_tokens(recipient, recipient_tokens);
-
-        // Emit transfer event.
-        self.storage_mut().emit(CEP47Event::Transfer {
-            sender: *sender,
-            recipient: *recipient,
-            token_ids: sender_tokens,
-        });
-
         Ok(())
     }
 
@@ -250,21 +228,20 @@ pub trait CEP47Storage {
     fn total_supply(&self) -> U256;
     fn token_meta(&self, token_id: &TokenId) -> Option<Meta>;
 
-    // Controls
+    // Pause and unpause transfers.
     fn is_paused(&self) -> bool;
     fn pause(&mut self);
     fn unpause(&mut self);
 
     // Setters
-    fn get_tokens(&self, owner: &Key) -> Vec<TokenId>;
-    fn set_tokens(&mut self, owner: &Key, token_ids: Vec<TokenId>);
     fn mint_many(&mut self, recipient: &Key, token_ids: &Vec<TokenId>, token_metas: &Vec<Meta>);
-    // fn burn_one(&mut self, owner: &Key, token_id: &TokenId);
+    fn transfer_many(&mut self, sender: &Key, recipient: &Key, token_ids: &Vec<TokenId>);
     fn burn_many(&mut self, owner: &Key, token_ids: &Vec<TokenId>);
     fn update_token_metadata(&mut self, token_id: &TokenId, meta: Meta);
 
     fn gen_token_ids(&mut self, n: u32) -> Vec<TokenId>;
     fn validate_token_ids(&self, token_ids: &Vec<TokenId>) -> bool;
+    fn are_all_owner_tokens(&self, owner: &Key, token_ids: &Vec<TokenId>) -> bool;
 
     fn emit(&mut self, event: CEP47Event);
     fn contact_package_hash(&self) -> ContractPackageHash;

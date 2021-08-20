@@ -62,12 +62,6 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         None,
     ));
     entry_points.add_entry_point(endpoint(
-        "tokens",
-        vec![Parameter::new("owner", CLType::Key)],
-        CLType::List(Box::new(CLType::String)),
-        None,
-    ));
-    entry_points.add_entry_point(endpoint(
         "total_supply",
         vec![Parameter::new("owner", CLType::Key)],
         CLType::List(Box::new(CLType::String)),
@@ -153,15 +147,6 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
             Parameter::new("sender", CLType::Key),
             Parameter::new("recipient", CLType::Key),
             Parameter::new("token_ids", CLType::List(Box::new(TokenId::cl_type()))),
-        ],
-        CLType::Unit,
-        None,
-    ));
-    entry_points.add_entry_point(endpoint(
-        "transfer_all_tokens",
-        vec![
-            Parameter::new("sender", CLType::Key),
-            Parameter::new("recipient", CLType::Key),
         ],
         CLType::Unit,
         None,

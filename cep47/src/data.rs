@@ -17,7 +17,6 @@ use cep47_logic::{events::CEP47Event, Meta, TokenId};
 const BALANCES_DICT: &str = "balances";
 const TOKEN_OWNERS_DICT: &str = "owners";
 const METADATA_DICT: &str = "metadata";
-const EVENTS_DICT: &str = "events";
 
 struct Dict {
     uref: URef,
@@ -157,14 +156,6 @@ pub fn set_nonce(nonce: u32) {
     set_key("nonce", nonce);
 }
 
-pub fn get_events_count() -> u32 {
-    get_key("events_count").unwrap_or_revert()
-}
-
-pub fn set_events_count(events_count: u32) {
-    set_key("events_count", events_count);
-}
-
 pub fn contract_package_hash() -> ContractPackageHash {
     get_key("contract_package_hash").unwrap_or_revert()
 }
@@ -194,10 +185,6 @@ pub fn initial_named_keys(
     add_empty_dict(&mut named_keys, BALANCES_DICT);
     add_empty_dict(&mut named_keys, TOKEN_OWNERS_DICT);
     add_empty_dict(&mut named_keys, METADATA_DICT);
-    add_empty_dict(&mut named_keys, EVENTS_DICT);
-
-    // Set events count.
-    named_keys.insert("events_count".to_string(), storage::new_uref(0u32).into());
 
     named_keys
 }
@@ -219,18 +206,13 @@ fn key_to_str(key: &Key) -> String {
 pub fn emit(cep47_event: &CEP47Event) {
     let mut events = Vec::new();
     let package = contract_package_hash();
-    let mut events_count = get_events_count();
-
     match cep47_event {
         CEP47Event::MetadataUpdate { token_id } => {
             let mut event = BTreeMap::new();
-            let event_id = events_count.to_string();
-            event.insert("event_id", event_id.clone());
             event.insert("contract_package_hash", package.to_string());
             event.insert("event_type", cep47_event.type_name());
             event.insert("token_id", token_id.to_string());
-            events.push((event_id, event));
-            events_count += 1;
+            events.push(event);
         }
         CEP47Event::Transfer {
             sender,
@@ -239,15 +221,12 @@ pub fn emit(cep47_event: &CEP47Event) {
         } => {
             for token_id in token_ids {
                 let mut event = BTreeMap::new();
-                let event_id = events_count.to_string();
-                event.insert("event_id", event_id.clone());
                 event.insert("contract_package_hash", package.to_string());
                 event.insert("event_type", cep47_event.type_name());
-                event.insert("sender", sender.to_formatted_string());
-                event.insert("recipient", recipient.to_formatted_string());
+                event.insert("sender", sender.to_string());
+                event.insert("recipient", recipient.to_string());
                 event.insert("token_id", token_id.to_string());
-                events.push((event_id, event));
-                events_count += 1;
+                events.push(event);
             }
         }
         CEP47Event::Mint {
@@ -256,36 +235,27 @@ pub fn emit(cep47_event: &CEP47Event) {
         } => {
             for token_id in token_ids {
                 let mut event = BTreeMap::new();
-                let event_id = events_count.to_string();
-                event.insert("event_id", event_id.clone());
                 event.insert("contract_package_hash", package.to_string());
                 event.insert("event_type", cep47_event.type_name());
-                event.insert("recipient", recipient.to_formatted_string());
+                event.insert("recipient", recipient.to_string());
                 event.insert("token_id", token_id.to_string());
-                events.push((event_id, event));
-                events_count += 1;
+                events.push(event);
             }
         }
         CEP47Event::Burn { owner, token_ids } => {
             for token_id in token_ids {
                 let mut event = BTreeMap::new();
-                let event_id = events_count.to_string();
-                event.insert("event_id", event_id.clone());
                 event.insert("contract_package_hash", package.to_string());
                 event.insert("event_type", cep47_event.type_name());
                 event.insert("owner", owner.to_string());
                 event.insert("token_id", token_id.to_string());
-                events.push((event_id, event));
-                events_count += 1;
+                events.push(event);
             }
         }
     };
-
-    let events_dict = Dict::at(EVENTS_DICT);
-    for (event_id, event) in events {
-        events_dict.set(&event_id, event);
+    for event in events {
+        let _: URef = storage::new_uref(event);
     }
-    set_events_count(events_count);
 }
 
 fn get_key<T: FromBytes + CLTyped>(name: &str) -> Option<T> {

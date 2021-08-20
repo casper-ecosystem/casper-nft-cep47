@@ -162,4 +162,17 @@ impl CEP47Storage for CasperCEP47Storage {
     fn contact_package_hash(&self) -> casper_types::ContractPackageHash {
         data::contract_package_hash()
     }
+
+    fn are_all_owner_tokens(&self, owner: &Key, token_ids: &Vec<TokenId>) -> bool {
+        let owners_dict = Owners::instance();
+        for token_id in token_ids.iter() {
+            let token_owner = owners_dict.get(token_id);
+            if let Some(token_owner) = token_owner {
+                if &token_owner != owner {
+                    return false;
+                }
+            }
+        }
+        true
+    }
 }

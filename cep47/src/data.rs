@@ -216,18 +216,18 @@ fn key_to_str(key: &Key) -> String {
     }
 }
 
-pub fn emit(event: &CEP47Event) {
+pub fn emit(cep47_event: &CEP47Event) {
     let mut events = Vec::new();
     let package = contract_package_hash();
     let mut events_count = get_events_count();
 
-    match event {
+    match cep47_event {
         CEP47Event::MetadataUpdate { token_id } => {
             let mut event = BTreeMap::new();
             let event_id = events_count.to_string();
             event.insert("event_id", event_id.clone());
-            event.insert("contract_package_hash", package.to_formatted_string());
-            event.insert("event_type", "cep47_metadata_update".to_string());
+            event.insert("contract_package_hash", package.to_string());
+            event.insert("event_type", cep47_event.type_name());
             event.insert("token_id", token_id.to_string());
             events.push((event_id, event));
             events_count += 1;
@@ -241,8 +241,8 @@ pub fn emit(event: &CEP47Event) {
                 let mut event = BTreeMap::new();
                 let event_id = events_count.to_string();
                 event.insert("event_id", event_id.clone());
-                event.insert("contract_package_hash", package.to_formatted_string());
-                event.insert("event_type", "cep47_transfer_token".to_string());
+                event.insert("contract_package_hash", package.to_string());
+                event.insert("event_type", cep47_event.type_name());
                 event.insert("sender", sender.to_formatted_string());
                 event.insert("recipient", recipient.to_formatted_string());
                 event.insert("token_id", token_id.to_string());
@@ -258,8 +258,8 @@ pub fn emit(event: &CEP47Event) {
                 let mut event = BTreeMap::new();
                 let event_id = events_count.to_string();
                 event.insert("event_id", event_id.clone());
-                event.insert("contract_package_hash", package.to_formatted_string());
-                event.insert("event_type", "cep47_mint_one".to_string());
+                event.insert("contract_package_hash", package.to_string());
+                event.insert("event_type", cep47_event.type_name());
                 event.insert("recipient", recipient.to_formatted_string());
                 event.insert("token_id", token_id.to_string());
                 events.push((event_id, event));
@@ -272,7 +272,7 @@ pub fn emit(event: &CEP47Event) {
                 let event_id = events_count.to_string();
                 event.insert("event_id", event_id.clone());
                 event.insert("contract_package_hash", package.to_string());
-                event.insert("event_type", "cep47_burn_one".to_string());
+                event.insert("event_type", cep47_event.type_name());
                 event.insert("owner", owner.to_string());
                 event.insert("token_id", token_id.to_string());
                 events.push((event_id, event));

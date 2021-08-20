@@ -161,6 +161,18 @@ impl CEP47Storage for TestStorage {
     fn contact_package_hash(&self) -> casper_types::ContractPackageHash {
         [1u8; 32].into()
     }
+
+    fn are_all_owner_tokens(&self, owner: &Key, token_ids: &Vec<TokenId>) -> bool {
+        for token_id in token_ids.iter() {
+            let token_owner = self.owner_of(token_id);
+            if let Some(token_owner) = token_owner {
+                if &token_owner != owner {
+                    return false;
+                }
+            }
+        }
+        true
+    }
 }
 
 struct TestContract {

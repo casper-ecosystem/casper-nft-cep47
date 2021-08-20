@@ -148,13 +148,8 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
     }
 
     fn burn_many(&mut self, owner: &Key, token_ids: Vec<TokenId>) -> Result<(), Error> {
-        for token_id in token_ids.iter() {
-            let token_owner = self.storage().owner_of(token_id);
-            if let Some(token_owner) = token_owner {
-                if &token_owner != owner {
-                    return Err(Error::NotAnOwner);
-                }
-            }
+        if !self.storage().are_all_owner_tokens(owner, &token_ids) {
+            return Err(Error::NotAnOwner);
         }
 
         self.storage_mut().burn_many(owner, &token_ids);
@@ -188,13 +183,8 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
             return Err(Error::PermissionDenied);
         }
 
-        for token_id in token_ids.iter() {
-            let token_owner = self.storage().owner_of(token_id);
-            if let Some(token_owner) = token_owner {
-                if &token_owner != sender {
-                    return Err(Error::NotAnOwner);
-                }
-            }
+        if !self.storage().are_all_owner_tokens(sender, token_ids) {
+            return Err(Error::NotAnOwner);
         }
 
         self.storage_mut()
@@ -238,7 +228,7 @@ pub trait CEP47Storage {
     fn total_supply(&self) -> U256;
     fn token_meta(&self, token_id: &TokenId) -> Option<Meta>;
 
-    // Controls
+    // Pause and unpause transfers.
     fn is_paused(&self) -> bool;
     fn pause(&mut self);
     fn unpause(&mut self);
@@ -251,6 +241,7 @@ pub trait CEP47Storage {
 
     fn gen_token_ids(&mut self, n: u32) -> Vec<TokenId>;
     fn validate_token_ids(&self, token_ids: &Vec<TokenId>) -> bool;
+    fn are_all_owner_tokens(&self, owner: &Key, token_ids: &Vec<TokenId>) -> bool;
 
     fn emit(&mut self, event: CEP47Event);
     fn contact_package_hash(&self) -> ContractPackageHash;

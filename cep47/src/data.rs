@@ -1,49 +1,26 @@
-use std::{collections::BTreeMap, convert::TryInto};
+use alloc::{
+    collections::BTreeMap,
+    string::{String, ToString},
+    vec::Vec,
+};
+use casper_contract::{contract_api::storage, unwrap_or_revert::UnwrapOrRevert};
+use casper_types::{ContractPackageHash, Key, URef, U256};
+use contract_utils::{get_key, key_and_value_to_str, set_key, Dict};
 
-use casper_contract::{
-    contract_api::{
-        runtime,
-        storage::{self, new_dictionary},
-    },
-    unwrap_or_revert::UnwrapOrRevert,
-};
-use casper_types::{
-    bytesrepr::{FromBytes, ToBytes},
-    contracts::NamedKeys,
-    ApiError, CLTyped, ContractPackageHash, Key, URef, U256,
-};
-use cep47_logic::{events::CEP47Event, Meta, TokenId};
+use crate::{event::CEP47Event, Meta, TokenId};
 
 const BALANCES_DICT: &str = "balances";
-const OWNED_TOKENS_DICT: &str = "owned_tokens";
-const TOKEN_OWNERS_DICT: &str = "owners";
+pub const ALLOWANCES_DICT: &str = "allowances";
 const METADATA_DICT: &str = "metadata";
+const OWNERS_DICT: &str = "owners";
+const OWNED_TOKENS_DICT: &str = "owned_tokens";
+const CONTRACT_PACKAGE_HASH: &str = "contract_package_hash";
 
-struct Dict {
-    uref: URef,
-}
-
-impl Dict {
-    pub fn at(name: &str) -> Dict {
-        let key: Key = runtime::get_key(name).unwrap_or_revert();
-        let uref: URef = *key.as_uref().unwrap_or_revert();
-        Dict { uref }
-    }
-
-    pub fn get<T: CLTyped + FromBytes>(&self, key: &str) -> Option<T> {
-        storage::dictionary_get(self.uref, key)
-            .unwrap_or_revert()
-            .unwrap_or_default()
-    }
-
-    pub fn set<T: CLTyped + ToBytes>(&self, key: &str, value: T) {
-        storage::dictionary_put(self.uref, key, Some(value));
-    }
-
-    pub fn remove<T: CLTyped + ToBytes>(&self, key: &str) {
-        storage::dictionary_put(self.uref, key, Option::<T>::None);
-    }
-}
+pub const NAME: &str = "name";
+pub const META: &str = "meta";
+pub const SYMBOL: &str = "symbol";
+pub const TOTAL_SUPPLY: &str = "total_supply";
+pub const NONCE: &str = "nonce";
 
 pub struct Balances {
     dict: Dict,
@@ -52,45 +29,21 @@ pub struct Balances {
 impl Balances {
     pub fn instance() -> Balances {
         Balances {
-            dict: Dict::at(BALANCES_DICT),
+            dict: Dict::instance(BALANCES_DICT),
         }
     }
 
-    pub fn get(&self, key: &Key) -> U256 {
-        self.dict.get(&key_to_str(key)).unwrap_or_default()
+    pub fn init() {
+        Dict::init(BALANCES_DICT)
     }
 
-    pub fn set(&self, key: &Key, value: U256) {
-        self.dict.set(&key_to_str(key), value);
+    pub fn get(&self, owner: &Key) -> U256 {
+        self.dict.get_by_key(owner).unwrap_or_default()
     }
 
-    // pub fn remove(&self, key: &Key) {
-    //     self.dict.remove::<U256>(&key_to_str(key));
-    // }
-}
-
-pub struct OwnedTokens {
-    dict: Dict,
-}
-
-impl OwnedTokens {
-    pub fn instance() -> OwnedTokens {
-        OwnedTokens {
-            dict: Dict::at(OWNED_TOKENS_DICT),
-        }
+    pub fn set(&self, owner: &Key, value: U256) {
+        self.dict.set_by_key(owner, value);
     }
-
-    pub fn get(&self, key: &Key) -> Vec<TokenId> {
-        self.dict.get(&key_to_str(key)).unwrap_or_default()
-    }
-
-    pub fn set(&self, key: &Key, value: Vec<TokenId>) {
-        self.dict.set(&key_to_str(key), value);
-    }
-
-    // pub fn remove(&self, key: &Key) {
-    //     self.dict.remove::<TokenId>(&key_to_str(key));
-    // }
 }
 
 pub struct Owners {
@@ -100,8 +53,12 @@ pub struct Owners {
 impl Owners {
     pub fn instance() -> Owners {
         Owners {
-            dict: Dict::at(TOKEN_OWNERS_DICT),
+            dict: Dict::instance(OWNERS_DICT),
         }
+    }
+
+    pub fn init() {
+        Dict::init(OWNERS_DICT)
     }
 
     pub fn get(&self, key: &TokenId) -> Option<Key> {
@@ -124,8 +81,12 @@ pub struct Metadata {
 impl Metadata {
     pub fn instance() -> Metadata {
         Metadata {
-            dict: Dict::at(METADATA_DICT),
+            dict: Dict::instance(METADATA_DICT),
         }
+    }
+
+    pub fn init() {
+        Dict::init(METADATA_DICT)
     }
 
     pub fn get(&self, key: &TokenId) -> Option<Meta> {
@@ -141,104 +102,148 @@ impl Metadata {
     }
 }
 
+pub struct OwnedTokens {
+    dict: Dict,
+}
+
+impl OwnedTokens {
+    pub fn instance() -> OwnedTokens {
+        OwnedTokens {
+            dict: Dict::instance(OWNED_TOKENS_DICT),
+        }
+    }
+
+    pub fn init() {
+        Dict::init(OWNED_TOKENS_DICT)
+    }
+
+    pub fn get(&self, owner: &Key) -> Vec<TokenId> {
+        self.dict.get_by_key(owner).unwrap_or_default()
+    }
+
+    pub fn set(&self, owner: &Key, value: Vec<TokenId>) {
+        self.dict.set_by_key(owner, value);
+    }
+}
+
+pub struct Allowances {
+    dict: Dict,
+}
+
+impl Allowances {
+    pub fn instance() -> Allowances {
+        Allowances {
+            dict: Dict::instance(ALLOWANCES_DICT),
+        }
+    }
+
+    pub fn init() {
+        Dict::init(ALLOWANCES_DICT)
+    }
+
+    pub fn get(&self, owner: &Key, token_id: &TokenId) -> Option<Key> {
+        self.dict
+            .get(key_and_value_to_str::<TokenId>(owner, token_id).as_str())
+    }
+
+    pub fn set(&self, owner: &Key, token_id: &TokenId, value: Key) {
+        self.dict.set(
+            key_and_value_to_str::<TokenId>(owner, token_id).as_str(),
+            value,
+        );
+    }
+
+    pub fn remove(&self, owner: &Key, token_id: &TokenId) {
+        self.dict
+            .remove::<Key>(key_and_value_to_str::<TokenId>(owner, token_id).as_str());
+    }
+}
+
 pub fn name() -> String {
-    get_key("name").unwrap_or_revert()
+    get_key(NAME).unwrap_or_revert()
+}
+
+pub fn set_name(name: String) {
+    set_key(NAME, name);
 }
 
 pub fn symbol() -> String {
-    get_key("symbol").unwrap_or_revert()
+    get_key(SYMBOL).unwrap_or_revert()
+}
+
+pub fn set_symbol(symbol: String) {
+    set_key(SYMBOL, symbol);
 }
 
 pub fn meta() -> Meta {
-    get_key("meta").unwrap_or_revert()
+    get_key(META).unwrap_or_revert()
+}
+
+pub fn set_meta(meta: Meta) {
+    set_key(META, meta);
 }
 
 pub fn total_supply() -> U256 {
-    get_key("total_supply").unwrap_or_revert()
+    get_key(TOTAL_SUPPLY).unwrap_or_default()
 }
 
-pub fn update_total_supply(total_supply: U256) {
-    set_key("total_supply", total_supply);
+pub fn set_total_supply(total_supply: U256) {
+    set_key(TOTAL_SUPPLY, total_supply);
 }
 
-pub fn is_paused() -> bool {
-    get_key("paused").unwrap()
-}
-
-pub fn pause() {
-    set_key("paused", true);
-}
-
-pub fn unpause() {
-    set_key("paused", false);
-}
-
-pub fn get_nonce() -> u32 {
-    get_key("nonce").unwrap_or_default()
+pub fn nonce() -> u32 {
+    get_key(NONCE).unwrap_or_default()
 }
 
 pub fn set_nonce(nonce: u32) {
-    set_key("nonce", nonce);
+    set_key(NONCE, nonce);
 }
 
 pub fn contract_package_hash() -> ContractPackageHash {
-    get_key("contract_package_hash").unwrap_or_revert()
-}
-
-pub fn initial_named_keys(
-    package_hash: ContractPackageHash,
-    token_name: &str,
-    token_symbol: &str,
-    token_meta: Meta,
-    paused: bool,
-) -> NamedKeys {
-    let mut named_keys = NamedKeys::new();
-    named_keys.insert("name".to_string(), storage::new_uref(token_name).into());
-    named_keys.insert("symbol".to_string(), storage::new_uref(token_symbol).into());
-    named_keys.insert("meta".to_string(), storage::new_uref(token_meta).into());
-    named_keys.insert(
-        "total_supply".to_string(),
-        storage::new_uref(U256::zero()).into(),
-    );
-    named_keys.insert("paused".to_string(), storage::new_uref(paused).into());
-    named_keys.insert(
-        "contract_package_hash".to_string(),
-        storage::new_uref(package_hash).into(),
-    );
-
-    // Add empty dictionaries.
-    add_empty_dict(&mut named_keys, BALANCES_DICT);
-    add_empty_dict(&mut named_keys, OWNED_TOKENS_DICT);
-    add_empty_dict(&mut named_keys, TOKEN_OWNERS_DICT);
-    add_empty_dict(&mut named_keys, METADATA_DICT);
-
-    named_keys
-}
-
-fn add_empty_dict(named_keys: &mut NamedKeys, name: &str) {
-    let dict = new_dictionary(name).unwrap_or_revert();
-    runtime::remove_key(name);
-    named_keys.insert(name.to_string(), dict.into());
-}
-
-fn key_to_str(key: &Key) -> String {
-    match key {
-        Key::Account(account) => account.to_string(),
-        Key::Hash(package) => hex::encode(package),
-        _ => runtime::revert(ApiError::UnexpectedKeyVariant),
-    }
+    get_key(CONTRACT_PACKAGE_HASH).unwrap_or_revert()
 }
 
 pub fn emit(event: &CEP47Event) {
     let mut events = Vec::new();
     let package = contract_package_hash();
     match event {
-        CEP47Event::MetadataUpdate { token_id } => {
-            let mut event = BTreeMap::new();
-            event.insert("contract_package_hash", package.to_string());
-            event.insert("event_type", "cep47_metadata_update".to_string());
-            event.insert("token_id", token_id.to_string());
-            events.push(event);
+        CEP47Event::Mint {
+            recipient,
+            token_ids,
+        } => {
+            for token_id in token_ids {
+                let mut param = BTreeMap::new();
+                param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+                param.insert("event_type", "cep47_mint_one".to_string());
+                param.insert("recipient", recipient.to_string());
+                param.insert("token_id", token_id.to_string());
+                events.push(param);
+            }
+        }
+        CEP47Event::Burn { owner, token_ids } => {
+            for token_id in token_ids {
+                let mut param = BTreeMap::new();
+                param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+                param.insert("event_type", "cep47_burn_one".to_string());
+                param.insert("owner", owner.to_string());
+                param.insert("token_id", token_id.to_string());
+                events.push(param);
+            }
+        }
+        CEP47Event::Approve {
+            owner,
+            spender,
+            token_ids,
+        } => {
+            for token_id in token_ids {
+                let mut param = BTreeMap::new();
+                param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+                param.insert("event_type", "cep47_approve_token".to_string());
+                param.insert("owner", owner.to_string());
+                param.insert("spender", spender.to_string());
+                param.insert("token_id", token_id.to_string());
+                events.push(param);
+            }
         }
         CEP47Event::Transfer {
             sender,
@@ -246,64 +251,24 @@ pub fn emit(event: &CEP47Event) {
             token_ids,
         } => {
             for token_id in token_ids {
-                let mut event = BTreeMap::new();
-                event.insert("contract_package_hash", package.to_string());
-                event.insert("event_type", "cep47_transfer_token".to_string());
-                event.insert("sender", sender.to_string());
-                event.insert("recipient", recipient.to_string());
-                event.insert("token_id", token_id.to_string());
-                events.push(event);
+                let mut param = BTreeMap::new();
+                param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+                param.insert("event_type", "cep47_transfer_token".to_string());
+                param.insert("sender", sender.to_string());
+                param.insert("recipient", recipient.to_string());
+                param.insert("token_id", token_id.to_string());
+                events.push(param);
             }
         }
-        CEP47Event::Mint {
-            recipient,
-            token_ids,
-        } => {
-            for token_id in token_ids {
-                let mut event = BTreeMap::new();
-                event.insert("contract_package_hash", package.to_string());
-                event.insert("event_type", "cep47_mint_one".to_string());
-                event.insert("recipient", recipient.to_string());
-                event.insert("token_id", token_id.to_string());
-                events.push(event);
-            }
-        }
-        CEP47Event::Burn { owner, token_ids } => {
-            for token_id in token_ids {
-                let mut event = BTreeMap::new();
-                event.insert("contract_package_hash", package.to_string());
-                event.insert("event_type", "cep47_burn_one".to_string());
-                event.insert("owner", owner.to_string());
-                event.insert("token_id", token_id.to_string());
-                events.push(event);
-            }
+        CEP47Event::MetadataUpdate { token_id } => {
+            let mut param = BTreeMap::new();
+            param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+            param.insert("event_type", "cep47_metadata_update".to_string());
+            param.insert("token_id", token_id.to_string());
+            events.push(param);
         }
     };
-    for event in events {
-        let _: URef = storage::new_uref(event);
-    }
-}
-
-fn get_key<T: FromBytes + CLTyped>(name: &str) -> Option<T> {
-    match runtime::get_key(name) {
-        None => None,
-        Some(value) => {
-            let key = value.try_into().unwrap_or_revert();
-            let value = storage::read(key).unwrap_or_revert().unwrap_or_revert();
-            Some(value)
-        }
-    }
-}
-
-fn set_key<T: ToBytes + CLTyped>(name: &str, value: T) {
-    match runtime::get_key(name) {
-        Some(key) => {
-            let key_ref = key.try_into().unwrap_or_revert();
-            storage::write(key_ref, value);
-        }
-        None => {
-            let key = storage::new_uref(value).into();
-            runtime::put_key(name, key);
-        }
+    for param in events {
+        let _: URef = storage::new_uref(param);
     }
 }

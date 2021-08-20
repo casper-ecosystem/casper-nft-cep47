@@ -2,10 +2,9 @@
 
 members = [
     "cep47",
-    "cep47-logic",
-    "cep47-tests",
-	"test-contracts"
+    "cep47-tests"
 ]
 
 [profile.release]
+codegen-units = 1
 lto = true

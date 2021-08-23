@@ -253,7 +253,7 @@ pub fn contract_package_hash() -> ContractPackageHash {
     get_key(CONTRACT_PACKAGE_HASH).unwrap_or_revert()
 }
 
-pub fn emit(cep47_event: &CEP47Event) {
+pub fn emit(event: &CEP47Event) {
     let mut events = Vec::new();
     let package = contract_package_hash();
     match event {

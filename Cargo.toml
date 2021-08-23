@@ -8,4 +8,3 @@ members = [
 [profile.release]
 codegen-units = 1
 lto = true
-codegen-units = 1

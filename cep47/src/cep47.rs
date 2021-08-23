@@ -75,27 +75,8 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         Ok(())
     }
 
-    fn get_tokens(&self, owner: Key) -> Vec<TokenId> {
-        OwnedTokens::instance().get(&owner)
-    }
-
-    fn set_tokens(&mut self, owner: Key, token_ids: Vec<TokenId>) {
-        let owners_dict = Owners::instance();
-        let owned_tokens_dict = OwnedTokens::instance();
-        let balances_dict = Balances::instance();
-
-        for token_id in &token_ids {
-            owners_dict.set(token_id, owner);
-        }
-
-        let prev_balance = balances_dict.get(&owner);
-        let new_balance = U256::from(token_ids.len() as u64);
-        balances_dict.set(&owner, new_balance);
-
-        owned_tokens_dict.set(&owner, token_ids);
-
-        let new_total_supply = data::total_supply() - prev_balance + new_balance;
-        data::set_total_supply(new_total_supply);
+    fn get_token_by_index(&self, owner: Key, index: u32) -> Option<TokenId> {
+        OwnedTokens::instance().get_token_by_index(&owner, &index)
     }
 
     fn generate_token_ids(&mut self, n: u32) -> Vec<TokenId> {
@@ -147,14 +128,11 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         let metadata_dict = Metadata::instance();
         let balances_dict = Balances::instance();
 
-        let mut recipient_tokens = owned_tokens_dict.get(&recipient);
         for (token_id, token_meta) in unique_token_ids.iter().zip(&token_metas) {
             metadata_dict.set(token_id, token_meta.clone());
             owners_dict.set(token_id, recipient);
-            recipient_tokens.push(token_id.clone());
+            owned_tokens_dict.set_token(&recipient, token_id.clone());
         }
-
-        owned_tokens_dict.set(&recipient, recipient_tokens);
 
         let minted_tokens_count = U256::from(unique_token_ids.len() as u64);
         let prev_balance = balances_dict.get(&recipient);
@@ -194,7 +172,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         let balances_dict = Balances::instance();
         let allowances_dict = Allowances::instance();
 
-        let mut owner_tokens = owned_tokens_dict.get(&owner);
         let spender = self.get_caller();
 
         for token_id in &token_ids {
@@ -211,18 +188,15 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
                     return Err(Error::TokenIdDoesntExist);
                 }
             }
-            let index = owner_tokens
-                .iter()
-                .position(|x| x == token_id)
-                .unwrap_or_revert();
-            owner_tokens.remove(index);
+            owned_tokens_dict.remove_token(&owner, token_id.clone());
             metadata_dict.remove(token_id);
             owners_dict.remove(token_id);
             allowances_dict.remove(&owner, token_id);
         }
 
-        balances_dict.set(&owner, U256::from(owner_tokens.len() as u64));
-        owned_tokens_dict.set(&owner, owner_tokens);
+        let owner_balance = balances_dict.get(&owner);
+        let new_owner_balance = owner_balance - U256::from(token_ids.len() as u64);
+        balances_dict.set(&owner, new_owner_balance);
 
         let burnt_tokens_count = U256::from(token_ids.len() as u64);
         let new_total_supply = data::total_supply() - burnt_tokens_count;
@@ -281,8 +255,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         let owned_tokens_dict = OwnedTokens::instance();
         let balances_dict = Balances::instance();
 
-        let mut sender_tokens = owned_tokens_dict.get(&owner);
-        let mut recipient_tokens = owned_tokens_dict.get(&recipient);
         for token_id in &token_ids {
             match owners_dict.get(token_id) {
                 Some(owner_of_key) => {
@@ -294,20 +266,18 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
                     return Err(Error::TokenIdDoesntExist);
                 }
             }
-            let index = sender_tokens
-                .iter()
-                .position(|x| x == token_id)
-                .unwrap_or_revert();
-            sender_tokens.remove(index);
-            recipient_tokens.push(token_id.clone());
+            owned_tokens_dict.remove_token(&owner, token_id.clone());
+            owned_tokens_dict.set_token(&recipient, token_id.clone());
             owners_dict.set(token_id, recipient);
         }
+        let owner_balance = balances_dict.get(&owner);
+        let new_owner_balance = owner_balance - U256::from(token_ids.len() as u64);
+        balances_dict.set(&owner, new_owner_balance);
 
-        balances_dict.set(&owner, sender_tokens.len().into());
-        owned_tokens_dict.set(&owner, sender_tokens);
+        let recipient_balance = balances_dict.get(&recipient);
+        let new_recipient_balance = recipient_balance + U256::from(token_ids.len() as u64);
+        balances_dict.set(&recipient, new_recipient_balance);
 
-        balances_dict.set(&recipient, recipient_tokens.len().into());
-        owned_tokens_dict.set(&recipient, recipient_tokens);
         self.emit(CEP47Event::Transfer {
             sender: owner,
             recipient,

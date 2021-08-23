@@ -5,7 +5,7 @@ use alloc::{
 };
 use casper_contract::{contract_api::storage, unwrap_or_revert::UnwrapOrRevert};
 use casper_types::{ContractPackageHash, Key, URef, U256};
-use contract_utils::{get_key, key_and_value_to_str, set_key, Dict};
+use contract_utils::{get_key, key_and_value_to_str, key_to_str, set_key, Dict};
 
 use crate::{event::CEP47Event, Meta, TokenId};
 
@@ -13,7 +13,9 @@ const BALANCES_DICT: &str = "balances";
 pub const ALLOWANCES_DICT: &str = "allowances";
 const METADATA_DICT: &str = "metadata";
 const OWNERS_DICT: &str = "owners";
-const OWNED_TOKENS_DICT: &str = "owned_tokens";
+const OWNED_TOKENS_BY_INDEX_DICT: &str = "owned_tokens_by_index";
+const OWNED_INDEXES_BY_TOKEN_DICT: &str = "owned_indexes_by_token";
+const OWNED_TOKENS_LENGTH_DICT: &str = "owned_tokens_length";
 const CONTRACT_PACKAGE_HASH: &str = "contract_package_hash";
 
 pub const NAME: &str = "name";
@@ -103,26 +105,74 @@ impl Metadata {
 }
 
 pub struct OwnedTokens {
-    dict: Dict,
+    token_dict: Dict,
+    index_dict: Dict,
+    length_dict: Dict,
 }
 
 impl OwnedTokens {
     pub fn instance() -> OwnedTokens {
         OwnedTokens {
-            dict: Dict::instance(OWNED_TOKENS_DICT),
+            token_dict: Dict::instance(OWNED_TOKENS_BY_INDEX_DICT),
+            index_dict: Dict::instance(OWNED_INDEXES_BY_TOKEN_DICT),
+            length_dict: Dict::instance(OWNED_TOKENS_LENGTH_DICT),
         }
     }
 
     pub fn init() {
-        Dict::init(OWNED_TOKENS_DICT)
+        Dict::init(OWNED_TOKENS_BY_INDEX_DICT);
+        Dict::init(OWNED_INDEXES_BY_TOKEN_DICT);
+        Dict::init(OWNED_TOKENS_LENGTH_DICT);
     }
 
-    pub fn get(&self, owner: &Key) -> Vec<TokenId> {
-        self.dict.get_by_key(owner).unwrap_or_default()
+    pub fn get_token_by_index(&self, owner: &Key, index: &u32) -> Option<TokenId> {
+        self.token_dict.get(&key_and_value_to_str(owner, index))
     }
 
-    pub fn set(&self, owner: &Key, value: Vec<TokenId>) {
-        self.dict.set_by_key(owner, value);
+    pub fn get_index_by_token(&self, owner: &Key, value: &TokenId) -> Option<u32> {
+        self.index_dict.get(&key_and_value_to_str(owner, value))
+    }
+
+    pub fn get_tokens_len(&self, owner: &Key) -> Option<u32> {
+        self.length_dict.get(&key_to_str(owner))
+    }
+
+    pub fn set_tokens_len(&self, owner: &Key, value: u32) {
+        self.length_dict.set(&key_to_str(owner), value);
+    }
+
+    pub fn set_token(&self, owner: &Key, value: TokenId) {
+        let length = self.get_tokens_len(owner).unwrap_or_default();
+        self.index_dict
+            .set(&key_and_value_to_str(owner, &value), length.clone());
+        self.token_dict
+            .set(&key_and_value_to_str(owner, &length), value);
+        self.set_tokens_len(owner, length + 1);
+    }
+
+    pub fn remove_token(&self, owner: &Key, value: TokenId) {
+        let length = self.get_tokens_len(owner).unwrap_or_revert();
+        let index = self.get_index_by_token(owner, &value).unwrap_or_revert();
+        if length == index + 1 {
+            self.token_dict
+                .remove::<TokenId>(&key_and_value_to_str(owner, &(length - 1)));
+            self.set_tokens_len(owner, length - 1);
+        } else if length > index + 1 {
+            let last = self.get_token_by_index(owner, &(length - 1));
+            self.index_dict.set(
+                &key_and_value_to_str(owner, &last.clone().unwrap_or_revert()),
+                index,
+            );
+            self.token_dict.set(
+                &key_and_value_to_str(owner, &index),
+                last.clone().unwrap_or_revert(),
+            );
+            self.token_dict
+                .remove::<TokenId>(&key_and_value_to_str(owner, &(length - 1)));
+            self.set_tokens_len(owner, length - 1);
+        }
+        self.index_dict
+            .remove::<u32>(&key_and_value_to_str(owner, &value));
     }
 }
 

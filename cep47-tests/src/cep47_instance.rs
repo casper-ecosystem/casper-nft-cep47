@@ -178,10 +178,11 @@ impl CEP47Instance {
         )
     }
 
-    pub fn tokens<T: Into<Key>>(&self, account: T) -> Vec<TokenId> {
-        self.0
-            .query_dictionary("owned_tokens", key_to_str(&account.into()))
-            .unwrap_or_default()
+    pub fn get_token_by_index<T: Into<Key>>(&self, account: T, index: u32) -> Option<TokenId> {
+        self.0.query_dictionary(
+            "owned_tokens_by_index",
+            key_and_value_to_str(&account.into(), &index),
+        )
     }
 
     pub fn balance_of<T: Into<Key>>(&self, account: T) -> U256 {

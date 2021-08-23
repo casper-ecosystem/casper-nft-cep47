@@ -101,13 +101,6 @@ fn update_token_meta() {
 }
 
 #[no_mangle]
-fn tokens() {
-    let owner = runtime::get_named_arg::<Key>("owner");
-    let ret = NFTToken::default().get_tokens(owner);
-    runtime::ret(CLValue::from_t(ret).unwrap_or_revert());
-}
-
-#[no_mangle]
 fn mint() {
     let recipient = runtime::get_named_arg::<Key>("recipient");
     let token_ids = runtime::get_named_arg::<Option<Vec<TokenId>>>("token_ids");
@@ -252,6 +245,65 @@ fn get_entry_points() -> EntryPoints {
         EntryPointType::Contract,
     ));
     entry_points.add_entry_point(EntryPoint::new(
+        "name",
+        vec![],
+        String::cl_type(),
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    entry_points.add_entry_point(EntryPoint::new(
+        "symbol",
+        vec![],
+        String::cl_type(),
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    entry_points.add_entry_point(EntryPoint::new(
+        "meta",
+        vec![],
+        Meta::cl_type(),
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    entry_points.add_entry_point(EntryPoint::new(
+        "total_supply",
+        vec![],
+        U256::cl_type(),
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    entry_points.add_entry_point(EntryPoint::new(
+        "balance_of",
+        vec![Parameter::new("owner", Key::cl_type())],
+        U256::cl_type(),
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    entry_points.add_entry_point(EntryPoint::new(
+        "owner_of",
+        vec![Parameter::new("token_id", TokenId::cl_type())],
+        CLType::Option(Box::new(CLType::Key)),
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    entry_points.add_entry_point(EntryPoint::new(
+        "token_meta",
+        vec![Parameter::new("token_id", TokenId::cl_type())],
+        Meta::cl_type(),
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    entry_points.add_entry_point(EntryPoint::new(
+        "update_token_meta",
+        vec![
+            Parameter::new("token_id", TokenId::cl_type()),
+            Parameter::new("token_meta", Meta::cl_type()),
+        ],
+        <()>::cl_type(),
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    entry_points.add_entry_point(EntryPoint::new(
         "mint",
         vec![
             Parameter::new("recipient", Key::cl_type()),
@@ -328,23 +380,6 @@ fn get_entry_points() -> EntryPoints {
             Parameter::new("token_id", TokenId::cl_type()),
         ],
         CLType::Option(Box::new(CLType::Key)),
-        EntryPointAccess::Public,
-        EntryPointType::Contract,
-    ));
-    entry_points.add_entry_point(EntryPoint::new(
-        "update_token_meta",
-        vec![
-            Parameter::new("token_id", TokenId::cl_type()),
-            Parameter::new("token_meta", Meta::cl_type()),
-        ],
-        <()>::cl_type(),
-        EntryPointAccess::Public,
-        EntryPointType::Contract,
-    ));
-    entry_points.add_entry_point(EntryPoint::new(
-        "total_supply",
-        vec![],
-        U256::cl_type(),
         EntryPointAccess::Public,
         EntryPointType::Contract,
     ));

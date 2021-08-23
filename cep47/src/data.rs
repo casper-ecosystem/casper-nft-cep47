@@ -63,15 +63,15 @@ impl Owners {
         Dict::init(OWNERS_DICT)
     }
 
-    pub fn get(&self, key: &TokenId) -> Option<Key> {
+    pub fn get(&self, key: &str) -> Option<Key> {
         self.dict.get(key)
     }
 
-    pub fn set(&self, key: &TokenId, value: Key) {
+    pub fn set(&self, key: &str, value: Key) {
         self.dict.set(key, value);
     }
 
-    pub fn remove(&self, key: &TokenId) {
+    pub fn remove(&self, key: &str) {
         self.dict.remove::<Key>(key);
     }
 }
@@ -91,15 +91,15 @@ impl Metadata {
         Dict::init(METADATA_DICT)
     }
 
-    pub fn get(&self, key: &TokenId) -> Option<Meta> {
+    pub fn get(&self, key: &str) -> Option<Meta> {
         self.dict.get(key)
     }
 
-    pub fn set(&self, key: &TokenId, value: Meta) {
+    pub fn set(&self, key: &str, value: Meta) {
         self.dict.set(key, value);
     }
 
-    pub fn remove(&self, key: &TokenId) {
+    pub fn remove(&self, key: &str) {
         self.dict.remove::<Meta>(key);
     }
 }
@@ -129,8 +129,9 @@ impl OwnedTokens {
         self.token_dict.get(&key_and_value_to_str(owner, index))
     }
 
-    pub fn get_index_by_token(&self, owner: &Key, value: &TokenId) -> Option<u32> {
-        self.index_dict.get(&key_and_value_to_str(owner, value))
+    pub fn get_index_by_token(&self, owner: &Key, value: &str) -> Option<u32> {
+        self.index_dict
+            .get(&key_and_value_to_str(owner, &value.to_string()))
     }
 
     pub fn get_tokens_len(&self, owner: &Key) -> Option<u32> {
@@ -144,7 +145,7 @@ impl OwnedTokens {
     pub fn set_token(&self, owner: &Key, value: TokenId) {
         let length = self.get_tokens_len(owner).unwrap_or_default();
         self.index_dict
-            .set(&key_and_value_to_str(owner, &value), length.clone());
+            .set(&key_and_value_to_str(owner, &value), length);
         self.token_dict
             .set(&key_and_value_to_str(owner, &length), value);
         self.set_tokens_len(owner, length + 1);
@@ -153,23 +154,27 @@ impl OwnedTokens {
     pub fn remove_token(&self, owner: &Key, value: TokenId) {
         let length = self.get_tokens_len(owner).unwrap_or_revert();
         let index = self.get_index_by_token(owner, &value).unwrap_or_revert();
-        if length == index + 1 {
-            self.token_dict
-                .remove::<TokenId>(&key_and_value_to_str(owner, &(length - 1)));
-            self.set_tokens_len(owner, length - 1);
-        } else if length > index + 1 {
-            let last = self.get_token_by_index(owner, &(length - 1));
-            self.index_dict.set(
-                &key_and_value_to_str(owner, &last.clone().unwrap_or_revert()),
-                index,
-            );
-            self.token_dict.set(
-                &key_and_value_to_str(owner, &index),
-                last.clone().unwrap_or_revert(),
-            );
-            self.token_dict
-                .remove::<TokenId>(&key_and_value_to_str(owner, &(length - 1)));
-            self.set_tokens_len(owner, length - 1);
+        match length.cmp(&(index + 1)) {
+            core::cmp::Ordering::Equal => {
+                self.token_dict
+                    .remove::<TokenId>(&key_and_value_to_str(owner, &(length - 1)));
+                self.set_tokens_len(owner, length - 1);
+            }
+            core::cmp::Ordering::Greater => {
+                let last = self.get_token_by_index(owner, &(length - 1));
+                self.index_dict.set(
+                    &key_and_value_to_str(owner, &last.clone().unwrap_or_revert()),
+                    index,
+                );
+                self.token_dict.set(
+                    &key_and_value_to_str(owner, &index),
+                    last.unwrap_or_revert(),
+                );
+                self.token_dict
+                    .remove::<TokenId>(&key_and_value_to_str(owner, &(length - 1)));
+                self.set_tokens_len(owner, length - 1);
+            }
+            core::cmp::Ordering::Less => {}
         }
         self.index_dict
             .remove::<u32>(&key_and_value_to_str(owner, &value));
@@ -191,21 +196,21 @@ impl Allowances {
         Dict::init(ALLOWANCES_DICT)
     }
 
-    pub fn get(&self, owner: &Key, token_id: &TokenId) -> Option<Key> {
+    pub fn get(&self, owner: &Key, token_id: &str) -> Option<Key> {
         self.dict
-            .get(key_and_value_to_str::<TokenId>(owner, token_id).as_str())
+            .get(key_and_value_to_str::<TokenId>(owner, &token_id.to_string()).as_str())
     }
 
-    pub fn set(&self, owner: &Key, token_id: &TokenId, value: Key) {
+    pub fn set(&self, owner: &Key, token_id: &str, value: Key) {
         self.dict.set(
-            key_and_value_to_str::<TokenId>(owner, token_id).as_str(),
+            key_and_value_to_str::<TokenId>(owner, &token_id.to_string()).as_str(),
             value,
         );
     }
 
-    pub fn remove(&self, owner: &Key, token_id: &TokenId) {
+    pub fn remove(&self, owner: &Key, token_id: &str) {
         self.dict
-            .remove::<Key>(key_and_value_to_str::<TokenId>(owner, token_id).as_str());
+            .remove::<Key>(key_and_value_to_str::<TokenId>(owner, &token_id.to_string()).as_str());
     }
 }
 

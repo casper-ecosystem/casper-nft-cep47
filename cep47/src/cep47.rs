@@ -11,7 +11,7 @@ use contract_utils::{ContractContext, ContractStorage};
 #[repr(u16)]
 pub enum Error {
     PermissionDenied = 1,
-    ArgumentsError = 2,
+    WrongArguments = 2,
     TokenIdAlreadyExists = 3,
     TokenIdDoesntExist = 4,
 }
@@ -112,7 +112,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
             // Validate token_ids and metas.
             Some(token_ids) => {
                 if token_ids.len() != token_metas.len() {
-                    return Err(Error::ArgumentsError);
+                    return Err(Error::WrongArguments);
                 };
                 let valid = self.validate_token_ids(token_ids.clone());
                 if !valid {
@@ -158,7 +158,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
     ) -> Result<(), Error> {
         if let Some(token_ids) = &token_ids {
             if token_ids.len() != count as usize {
-                return Err(Error::ArgumentsError);
+                return Err(Error::WrongArguments);
             }
         }
         let token_metas = vec![token_meta; count as usize];
@@ -211,7 +211,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         for token_id in &token_ids {
             let owner = self.owner_of(token_id.clone());
             if owner.is_none() {
-                return Err(Error::ArgumentsError);
+                return Err(Error::WrongArguments);
             }
             if owner.unwrap() != caller {
                 return Err(Error::PermissionDenied);
@@ -293,7 +293,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     fn emit(&mut self, event: CEP47Event) {

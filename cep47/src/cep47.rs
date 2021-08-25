@@ -64,7 +64,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
 
     fn set_token_meta(&mut self, token_id: TokenId, meta: Meta) -> Result<(), Error> {
         if self.owner_of(token_id.clone()).is_none() {
-            return Err(Error::TokenIdAlreadyExists);
+            return Err(Error::TokenIdDoesntExist);
         };
 
         let metadata_dict = Metadata::instance();

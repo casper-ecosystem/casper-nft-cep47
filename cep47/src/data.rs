@@ -15,7 +15,6 @@ const METADATA_DICT: &str = "metadata";
 const OWNERS_DICT: &str = "owners";
 const OWNED_TOKENS_BY_INDEX_DICT: &str = "owned_tokens_by_index";
 const OWNED_INDEXES_BY_TOKEN_DICT: &str = "owned_indexes_by_token";
-const OWNED_TOKENS_LENGTH_DICT: &str = "owned_tokens_length";
 const CONTRACT_PACKAGE_HASH: &str = "contract_package_hash";
 
 pub const NAME: &str = "name";
@@ -23,30 +22,6 @@ pub const META: &str = "meta";
 pub const SYMBOL: &str = "symbol";
 pub const TOTAL_SUPPLY: &str = "total_supply";
 pub const NONCE: &str = "nonce";
-
-pub struct Balances {
-    dict: Dict,
-}
-
-impl Balances {
-    pub fn instance() -> Balances {
-        Balances {
-            dict: Dict::instance(BALANCES_DICT),
-        }
-    }
-
-    pub fn init() {
-        Dict::init(BALANCES_DICT)
-    }
-
-    pub fn get(&self, owner: &Key) -> U256 {
-        self.dict.get_by_key(owner).unwrap_or_default()
-    }
-
-    pub fn set(&self, owner: &Key, value: U256) {
-        self.dict.set_by_key(owner, value);
-    }
-}
 
 pub struct Owners {
     dict: Dict,
@@ -105,79 +80,81 @@ impl Metadata {
 }
 
 pub struct OwnedTokens {
-    token_dict: Dict,
-    index_dict: Dict,
-    length_dict: Dict,
+    tokens_dict: Dict,
+    indexes_dict: Dict,
+    balances_dict: Dict,
 }
 
 impl OwnedTokens {
     pub fn instance() -> OwnedTokens {
         OwnedTokens {
-            token_dict: Dict::instance(OWNED_TOKENS_BY_INDEX_DICT),
-            index_dict: Dict::instance(OWNED_INDEXES_BY_TOKEN_DICT),
-            length_dict: Dict::instance(OWNED_TOKENS_LENGTH_DICT),
+            tokens_dict: Dict::instance(OWNED_TOKENS_BY_INDEX_DICT),
+            indexes_dict: Dict::instance(OWNED_INDEXES_BY_TOKEN_DICT),
+            balances_dict: Dict::instance(BALANCES_DICT),
         }
     }
 
     pub fn init() {
         Dict::init(OWNED_TOKENS_BY_INDEX_DICT);
         Dict::init(OWNED_INDEXES_BY_TOKEN_DICT);
-        Dict::init(OWNED_TOKENS_LENGTH_DICT);
+        Dict::init(BALANCES_DICT);
     }
 
-    pub fn get_token_by_index(&self, owner: &Key, index: &u32) -> Option<TokenId> {
-        self.token_dict.get(&key_and_value_to_str(owner, index))
+    pub fn get_token_by_index(&self, owner: &Key, index: &U256) -> Option<TokenId> {
+        self.tokens_dict.get(&key_and_value_to_str(owner, index))
     }
 
-    pub fn get_index_by_token(&self, owner: &Key, value: &str) -> Option<u32> {
-        self.index_dict
+    pub fn get_index_by_token(&self, owner: &Key, value: &str) -> Option<U256> {
+        self.indexes_dict
             .get(&key_and_value_to_str(owner, &value.to_string()))
     }
 
-    pub fn get_tokens_len(&self, owner: &Key) -> Option<u32> {
-        self.length_dict.get(&key_to_str(owner))
+    pub fn get_balances(&self, owner: &Key) -> U256 {
+        self.balances_dict
+            .get(&key_to_str(owner))
+            .unwrap_or_default()
     }
 
-    pub fn set_tokens_len(&self, owner: &Key, value: u32) {
-        self.length_dict.set(&key_to_str(owner), value);
+    pub fn set_balances(&self, owner: &Key, value: U256) {
+        self.balances_dict.set(&key_to_str(owner), value);
     }
 
     pub fn set_token(&self, owner: &Key, value: TokenId) {
-        let length = self.get_tokens_len(owner).unwrap_or_default();
-        self.index_dict
+        let length = self.get_balances(owner);
+        self.indexes_dict
             .set(&key_and_value_to_str(owner, &value), length);
-        self.token_dict
+        self.tokens_dict
             .set(&key_and_value_to_str(owner, &length), value);
-        self.set_tokens_len(owner, length + 1);
+        self.set_balances(owner, length + 1);
     }
 
     pub fn remove_token(&self, owner: &Key, value: TokenId) {
-        let length = self.get_tokens_len(owner).unwrap_or_revert();
+        let length = self.get_balances(owner);
         let index = self.get_index_by_token(owner, &value).unwrap_or_revert();
         match length.cmp(&(index + 1)) {
             core::cmp::Ordering::Equal => {
-                self.token_dict
+                self.tokens_dict
                     .remove::<TokenId>(&key_and_value_to_str(owner, &(length - 1)));
-                self.set_tokens_len(owner, length - 1);
+                self.set_balances(owner, length - 1);
             }
             core::cmp::Ordering::Greater => {
                 let last = self.get_token_by_index(owner, &(length - 1));
-                self.index_dict.set(
+                self.indexes_dict.set(
                     &key_and_value_to_str(owner, &last.clone().unwrap_or_revert()),
                     index,
                 );
-                self.token_dict.set(
+                self.tokens_dict.set(
                     &key_and_value_to_str(owner, &index),
                     last.unwrap_or_revert(),
                 );
-                self.token_dict
+                self.tokens_dict
                     .remove::<TokenId>(&key_and_value_to_str(owner, &(length - 1)));
-                self.set_tokens_len(owner, length - 1);
+                self.set_balances(owner, length - 1);
             }
             core::cmp::Ordering::Less => {}
         }
-        self.index_dict
-            .remove::<u32>(&key_and_value_to_str(owner, &value));
+        self.indexes_dict
+            .remove::<U256>(&key_and_value_to_str(owner, &value));
     }
 }
 

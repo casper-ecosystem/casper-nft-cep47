@@ -178,7 +178,7 @@ impl CEP47Instance {
         )
     }
 
-    pub fn get_token_by_index<T: Into<Key>>(&self, account: T, index: u32) -> Option<TokenId> {
+    pub fn get_token_by_index<T: Into<Key>>(&self, account: T, index: U256) -> Option<TokenId> {
         self.0.query_dictionary(
             "owned_tokens_by_index",
             key_and_value_to_str(&account.into(), &index),

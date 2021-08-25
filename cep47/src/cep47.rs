@@ -1,5 +1,5 @@
 use crate::{
-    data::{self, Allowances, Balances, Metadata, OwnedTokens, Owners},
+    data::{self, Allowances, Metadata, OwnedTokens, Owners},
     event::CEP47Event,
     Meta, TokenId,
 };
@@ -31,7 +31,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         Owners::init();
         OwnedTokens::init();
         Metadata::init();
-        Balances::init();
         Allowances::init();
     }
 
@@ -52,7 +51,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
     }
 
     fn balance_of(&self, owner: Key) -> U256 {
-        Balances::instance().get(&owner)
+        OwnedTokens::instance().get_balances(&owner)
     }
 
     fn owner_of(&self, token_id: TokenId) -> Option<Key> {
@@ -75,7 +74,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         Ok(())
     }
 
-    fn get_token_by_index(&self, owner: Key, index: u32) -> Option<TokenId> {
+    fn get_token_by_index(&self, owner: Key, index: U256) -> Option<TokenId> {
         OwnedTokens::instance().get_token_by_index(&owner, &index)
     }
 
@@ -126,7 +125,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         let owners_dict = Owners::instance();
         let owned_tokens_dict = OwnedTokens::instance();
         let metadata_dict = Metadata::instance();
-        let balances_dict = Balances::instance();
 
         for (token_id, token_meta) in unique_token_ids.iter().zip(&token_metas) {
             metadata_dict.set(token_id, token_meta.clone());
@@ -135,10 +133,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         }
 
         let minted_tokens_count = U256::from(unique_token_ids.len() as u64);
-        let prev_balance = balances_dict.get(&recipient);
-        let new_balance = prev_balance + minted_tokens_count;
-        balances_dict.set(&recipient, new_balance);
-
         let new_total_supply = data::total_supply() + minted_tokens_count;
         data::set_total_supply(new_total_supply);
 
@@ -169,7 +163,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         let owners_dict = Owners::instance();
         let owned_tokens_dict = OwnedTokens::instance();
         let metadata_dict = Metadata::instance();
-        let balances_dict = Balances::instance();
         let allowances_dict = Allowances::instance();
 
         let spender = self.get_caller();
@@ -193,10 +186,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
             owners_dict.remove(token_id);
             allowances_dict.remove(&owner, token_id);
         }
-
-        let owner_balance = balances_dict.get(&owner);
-        let new_owner_balance = owner_balance - U256::from(token_ids.len() as u64);
-        balances_dict.set(&owner, new_owner_balance);
 
         let burnt_tokens_count = U256::from(token_ids.len() as u64);
         let new_total_supply = data::total_supply() - burnt_tokens_count;
@@ -253,7 +242,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
 
         let owners_dict = Owners::instance();
         let owned_tokens_dict = OwnedTokens::instance();
-        let balances_dict = Balances::instance();
 
         for token_id in &token_ids {
             match owners_dict.get(token_id) {
@@ -270,13 +258,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
             owned_tokens_dict.set_token(&recipient, token_id.clone());
             owners_dict.set(token_id, recipient);
         }
-        let owner_balance = balances_dict.get(&owner);
-        let new_owner_balance = owner_balance - U256::from(token_ids.len() as u64);
-        balances_dict.set(&owner, new_owner_balance);
-
-        let recipient_balance = balances_dict.get(&recipient);
-        let new_recipient_balance = recipient_balance + U256::from(token_ids.len() as u64);
-        balances_dict.set(&recipient, new_recipient_balance);
 
         self.emit(CEP47Event::Transfer {
             sender: owner,

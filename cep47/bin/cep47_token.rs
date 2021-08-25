@@ -78,6 +78,14 @@ fn balance_of() {
 }
 
 #[no_mangle]
+fn get_token_by_index() {
+    let owner = runtime::get_named_arg::<Key>("owner");
+    let index = runtime::get_named_arg::<U256>("index");
+    let ret = NFTToken::default().get_token_by_index(owner, index);
+    runtime::ret(CLValue::from_t(ret).unwrap_or_revert());
+}
+
+#[no_mangle]
 fn owner_of() {
     let token_id = runtime::get_named_arg::<TokenId>("token_id");
     let ret = NFTToken::default().owner_of(token_id);
@@ -380,6 +388,16 @@ fn get_entry_points() -> EntryPoints {
             Parameter::new("token_id", TokenId::cl_type()),
         ],
         CLType::Option(Box::new(CLType::Key)),
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    entry_points.add_entry_point(EntryPoint::new(
+        "get_token_by_index",
+        vec![
+            Parameter::new("owner", Key::cl_type()),
+            Parameter::new("index", U256::cl_type()),
+        ],
+        CLType::Option(Box::new(TokenId::cl_type())),
         EntryPointAccess::Public,
         EntryPointType::Contract,
     ));

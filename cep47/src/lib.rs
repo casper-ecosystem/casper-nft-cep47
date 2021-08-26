@@ -7,6 +7,7 @@ pub mod data;
 pub mod event;
 
 pub use cep47::CEP47;
+pub use contract_utils;
 
 use alloc::{collections::BTreeMap, string::String};
 pub type TokenId = String;

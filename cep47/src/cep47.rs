@@ -161,12 +161,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
 
     fn burn(&mut self, owner: Key, token_ids: Vec<TokenId>) -> Result<(), Error> {
         let owners_dict = Owners::instance();
-        let owned_tokens_dict = OwnedTokens::instance();
-        let metadata_dict = Metadata::instance();
-        let allowances_dict = Allowances::instance();
-
         let spender = self.get_caller();
-
         for token_id in &token_ids {
             if spender != owner && !self.is_approved(owner, token_id.clone(), spender) {
                 return Err(Error::PermissionDenied);
@@ -181,6 +176,18 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
                     return Err(Error::TokenIdDoesntExist);
                 }
             }
+        }
+        self.burn_internal(owner, token_ids);
+        Ok(())
+    }
+
+    fn burn_internal(&mut self, owner: Key, token_ids: Vec<TokenId>) {
+        let owners_dict = Owners::instance();
+        let owned_tokens_dict = OwnedTokens::instance();
+        let metadata_dict = Metadata::instance();
+        let allowances_dict = Allowances::instance();
+
+        for token_id in &token_ids {
             owned_tokens_dict.remove_token(&owner, token_id.clone());
             metadata_dict.remove(token_id);
             owners_dict.remove(token_id);
@@ -192,7 +199,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         data::set_total_supply(new_total_supply);
 
         self.emit(CEP47Event::Burn { owner, token_ids });
-        Ok(())
     }
 
     fn approve(&mut self, spender: Key, token_ids: Vec<TokenId>) -> Result<(), Error> {
@@ -231,6 +237,8 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
     ) -> Result<(), Error> {
         let allowances_dict = Allowances::instance();
         let spender = self.get_caller();
+        let owners_dict = Owners::instance();
+
         if owner != spender {
             for token_id in &token_ids {
                 if !self.is_approved(owner, token_id.clone(), spender) {
@@ -239,9 +247,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
                 allowances_dict.remove(&owner, token_id);
             }
         }
-
-        let owners_dict = Owners::instance();
-        let owned_tokens_dict = OwnedTokens::instance();
 
         for token_id in &token_ids {
             match owners_dict.get(token_id) {
@@ -254,6 +259,16 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
                     return Err(Error::TokenIdDoesntExist);
                 }
             }
+        }
+        self.transfer_from_internal(owner, recipient, token_ids);
+        Ok(())
+    }
+
+    fn transfer_from_internal(&mut self, owner: Key, recipient: Key, token_ids: Vec<TokenId>) {
+        let owners_dict = Owners::instance();
+        let owned_tokens_dict = OwnedTokens::instance();
+
+        for token_id in &token_ids {
             owned_tokens_dict.remove_token(&owner, token_id.clone());
             owned_tokens_dict.set_token(&recipient, token_id.clone());
             owners_dict.set(token_id, recipient);
@@ -264,7 +279,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
             recipient,
             token_ids,
         });
-        Ok(())
     }
 
     fn is_approved(&self, owner: Key, token_id: TokenId, spender: Key) -> bool {

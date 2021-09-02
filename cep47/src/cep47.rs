@@ -107,10 +107,11 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         token_ids: Option<Vec<TokenId>>,
         token_metas: Vec<Meta>,
     ) -> Result<(), Error> {
+        let mut valid_token_metas = token_metas;
         let unique_token_ids = match token_ids {
             // Validate token_ids and metas.
             Some(token_ids) => {
-                if token_ids.len() != token_metas.len() {
+                if token_ids.len() != valid_token_metas.len() {
                     return Err(Error::WrongArguments);
                 };
                 let valid = self.validate_token_ids(token_ids.clone());
@@ -120,10 +121,10 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
                 token_ids
             }
             None => {
-                if token_metas.is_empty() {
-                    return Err(Error::WrongArguments);
+                if valid_token_metas.is_empty() {
+                    valid_token_metas = vec![Meta::new()];
                 }
-                self.generate_token_ids(token_metas.len() as u32)
+                self.generate_token_ids(valid_token_metas.len() as u32)
             }
         };
 
@@ -131,7 +132,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         let owned_tokens_dict = OwnedTokens::instance();
         let metadata_dict = Metadata::instance();
 
-        for (token_id, token_meta) in unique_token_ids.iter().zip(&token_metas) {
+        for (token_id, token_meta) in unique_token_ids.iter().zip(&valid_token_metas) {
             metadata_dict.set(token_id, token_meta.clone());
             owners_dict.set(token_id, recipient);
             owned_tokens_dict.set_token(&recipient, token_id.clone());

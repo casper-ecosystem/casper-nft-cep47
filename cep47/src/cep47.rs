@@ -119,7 +119,12 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
                 };
                 token_ids
             }
-            None => self.generate_token_ids(token_metas.len() as u32),
+            None => {
+                if token_metas.is_empty() {
+                    return Err(Error::WrongArguments);
+                }
+                self.generate_token_ids(token_metas.len() as u32)
+            }
         };
 
         let owners_dict = Owners::instance();

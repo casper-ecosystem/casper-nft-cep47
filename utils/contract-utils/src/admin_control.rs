@@ -33,6 +33,10 @@ pub trait AdminControl<Storage: ContractStorage>: ContractContext<Storage> {
             runtime::revert(ApiError::User(20));
         }
     }
+
+    fn is_admin(&self, address: Key) -> bool {
+        Admins::instance().is_admin(&address)
+    }
 }
 
 struct Admins {

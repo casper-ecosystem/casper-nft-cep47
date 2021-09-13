@@ -106,7 +106,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         recipient: Key,
         token_ids: Option<Vec<TokenId>>,
         token_metas: Vec<Meta>,
-    ) -> Result<(), Error> {
+    ) -> Result<Vec<TokenId>, Error> {
         let mut valid_token_metas = token_metas;
         let unique_token_ids = match token_ids {
             // Validate token_ids and metas.
@@ -144,9 +144,9 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
 
         self.emit(CEP47Event::Mint {
             recipient,
-            token_ids: unique_token_ids,
+            token_ids: unique_token_ids.clone(),
         });
-        Ok(())
+        Ok(unique_token_ids)
     }
 
     fn mint_copies(
@@ -155,7 +155,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         token_ids: Option<Vec<TokenId>>,
         token_meta: Meta,
         count: u32,
-    ) -> Result<(), Error> {
+    ) -> Result<Vec<TokenId>, Error> {
         if let Some(token_ids) = &token_ids {
             if token_ids.len() != count as usize {
                 return Err(Error::WrongArguments);

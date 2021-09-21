@@ -2,7 +2,7 @@ use casper_contract::{contract_api::runtime, unwrap_or_revert::UnwrapOrRevert};
 use casper_types::{bytesrepr::ToBytes, ApiError, Key, U256};
 use cep47_logic::{CEP47Storage, Meta, TokenId};
 
-use crate::data::{self, Balances, Metadata, Owners};
+use crate::data::{self, Balances, Issuers, Metadata, Owners};
 
 #[derive(Default)]
 pub struct CasperCEP47Storage {}
@@ -37,6 +37,10 @@ impl CEP47Storage for CasperCEP47Storage {
         Owners::instance().get(token_id)
     }
 
+    fn issuer_of(&self, token_id: &TokenId) -> Option<Key> {
+        Issuers::instance().get(token_id)
+    }
+
     fn token_meta(&self, token_id: &TokenId) -> Option<Meta> {
         Metadata::instance().get(token_id)
     }
@@ -53,9 +57,16 @@ impl CEP47Storage for CasperCEP47Storage {
         data::unpause();
     }
 
-    fn mint_many(&mut self, recipient: &Key, token_ids: &Vec<TokenId>, token_metas: &Vec<Meta>) {
+    fn mint_many(
+        &mut self,
+        issuer: &Key,
+        recipient: &Key,
+        token_ids: &Vec<TokenId>,
+        token_metas: &Vec<Meta>,
+    ) {
         // Prepare dictionaries.
         let owners_dict = Owners::instance();
+        let issuers_dict = Issuers::instance();
         let balances_dict = Balances::instance();
         let metadata_dict = Metadata::instance();
 
@@ -66,6 +77,9 @@ impl CEP47Storage for CasperCEP47Storage {
 
             // Set token owner.
             owners_dict.set(token_id, *recipient);
+
+            // Set token issuer.
+            issuers_dict.set(token_id, *issuer);
         }
 
         // Update recipient's balance.
@@ -100,6 +114,7 @@ impl CEP47Storage for CasperCEP47Storage {
     fn burn_many(&mut self, owner: &Key, token_ids: &Vec<TokenId>) {
         // Prepare dictionaries.
         let owners_dict = Owners::instance();
+        let issuers_dict = Issuers::instance();
         let balances_dict = Balances::instance();
         let metadata_dict = Metadata::instance();
 
@@ -110,6 +125,9 @@ impl CEP47Storage for CasperCEP47Storage {
 
             // Remove ownership.
             owners_dict.remove(token_id);
+
+            // Remove issuer info.
+            issuers_dict.remove(token_id);
         }
 
         // Decrement owner's balance.

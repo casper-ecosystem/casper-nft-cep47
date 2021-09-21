@@ -62,6 +62,10 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         self.storage().owner_of(token_id)
     }
 
+    fn issuer_of(&self, token_id: &TokenId) -> Option<Key> {
+        self.storage().issuer_of(token_id)
+    }
+
     fn total_supply(&self) -> U256 {
         self.storage().total_supply()
     }
@@ -86,15 +90,22 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
     // Guarded by the entrypoint group.
     fn mint_one(
         &mut self,
+        issuer: &Key,
         recipient: &Key,
         token_id: Option<TokenId>,
         token_meta: Meta,
     ) -> Result<(), Error> {
-        self.mint_many(recipient, token_id.map(|id| vec![id]), vec![token_meta])
+        self.mint_many(
+            issuer,
+            recipient,
+            token_id.map(|id| vec![id]),
+            vec![token_meta],
+        )
     }
 
     fn mint_many(
         &mut self,
+        issuer: &Key,
         recipient: &Key,
         token_ids: Option<Vec<TokenId>>,
         token_metas: Vec<Meta>,
@@ -117,7 +128,7 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
         unique_token_ids.map(|token_ids| {
             // Mint tokens.
             self.storage_mut()
-                .mint_many(recipient, &token_ids, &token_metas);
+                .mint_many(issuer, recipient, &token_ids, &token_metas);
 
             // Emit event.
             self.storage_mut().emit(CEP47Event::Mint {
@@ -129,6 +140,7 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
 
     fn mint_copies(
         &mut self,
+        issuer: &Key,
         recipient: &Key,
         token_ids: Option<Vec<TokenId>>,
         token_meta: Meta,
@@ -140,7 +152,7 @@ pub trait CEP47Contract<Storage: CEP47Storage>: WithStorage<Storage> {
             };
         };
         let token_metas = vec![token_meta; count as usize];
-        self.mint_many(recipient, token_ids, token_metas)
+        self.mint_many(issuer, recipient, token_ids, token_metas)
     }
 
     fn burn_one(&mut self, owner: &Key, token_id: TokenId) -> Result<(), Error> {
@@ -227,6 +239,7 @@ pub trait CEP47Storage {
     fn owner_of(&self, token_id: &TokenId) -> Option<Key>;
     fn total_supply(&self) -> U256;
     fn token_meta(&self, token_id: &TokenId) -> Option<Meta>;
+    fn issuer_of(&self, token_id: &TokenId) -> Option<Key>;
 
     // Pause and unpause transfers.
     fn is_paused(&self) -> bool;
@@ -234,7 +247,13 @@ pub trait CEP47Storage {
     fn unpause(&mut self);
 
     // Setters
-    fn mint_many(&mut self, recipient: &Key, token_ids: &Vec<TokenId>, token_metas: &Vec<Meta>);
+    fn mint_many(
+        &mut self,
+        issuer: &Key,
+        recipient: &Key,
+        token_ids: &Vec<TokenId>,
+        token_metas: &Vec<Meta>,
+    );
     fn transfer_many(&mut self, sender: &Key, recipient: &Key, token_ids: &Vec<TokenId>);
     fn burn_many(&mut self, owner: &Key, token_ids: &Vec<TokenId>);
     fn update_token_metadata(&mut self, token_id: &TokenId, meta: Meta);

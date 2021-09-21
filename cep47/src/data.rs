@@ -16,6 +16,7 @@ use cep47_logic::{events::CEP47Event, Meta, TokenId};
 
 const BALANCES_DICT: &str = "balances";
 const TOKEN_OWNERS_DICT: &str = "owners";
+const TOKEN_ISSUERS_DICT: &str = "issuers";
 const METADATA_DICT: &str = "metadata";
 
 struct Dict {
@@ -76,6 +77,30 @@ impl Owners {
     pub fn instance() -> Owners {
         Owners {
             dict: Dict::at(TOKEN_OWNERS_DICT),
+        }
+    }
+
+    pub fn get(&self, key: &TokenId) -> Option<Key> {
+        self.dict.get(key)
+    }
+
+    pub fn set(&self, key: &TokenId, value: Key) {
+        self.dict.set(key, value);
+    }
+
+    pub fn remove(&self, key: &TokenId) {
+        self.dict.remove::<Key>(key);
+    }
+}
+
+pub struct Issuers {
+    dict: Dict,
+}
+
+impl Issuers {
+    pub fn instance() -> Issuers {
+        Issuers {
+            dict: Dict::at(TOKEN_ISSUERS_DICT),
         }
     }
 
@@ -184,6 +209,7 @@ pub fn initial_named_keys(
     // Add empty dictionaries.
     add_empty_dict(&mut named_keys, BALANCES_DICT);
     add_empty_dict(&mut named_keys, TOKEN_OWNERS_DICT);
+    add_empty_dict(&mut named_keys, TOKEN_ISSUERS_DICT);
     add_empty_dict(&mut named_keys, METADATA_DICT);
 
     named_keys

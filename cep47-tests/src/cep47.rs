@@ -25,6 +25,7 @@ pub const CONTRACT_HASH_KEY: &str = "DragonsNFT_contract_hash";
 
 const BALANCES_DICT: &str = "balances";
 const TOKEN_OWNERS_DICT: &str = "owners";
+const TOKEN_ISSUERS_DICT: &str = "issuers";
 const METADATA_DICT: &str = "metadata";
 
 pub struct CasperCEP47Contract {
@@ -163,6 +164,10 @@ impl CasperCEP47Contract {
 
     pub fn owner_of(&self, token_id: &TokenId) -> Option<Key> {
         self.query_dictionary_value::<Key>(TOKEN_OWNERS_DICT, token_id.clone())
+    }
+
+    pub fn issuer_of(&self, token_id: &TokenId) -> Option<Key> {
+        self.query_dictionary_value::<Key>(TOKEN_ISSUERS_DICT, token_id.clone())
     }
 
     pub fn balance_of(&self, owner: &Key) -> U256 {

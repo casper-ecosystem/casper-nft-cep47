@@ -18,6 +18,8 @@ const BALANCES_DICT: &str = "balances";
 const TOKEN_OWNERS_DICT: &str = "owners";
 const TOKEN_ISSUERS_DICT: &str = "issuers";
 const METADATA_DICT: &str = "metadata";
+const OWNED_TOKENS_BY_INDEX_DICT: &str = "owned_tokens_by_index";
+const OWNED_INDEXES_BY_TOKEN_DICT: &str = "owned_indexes_by_token";
 
 struct Dict {
     uref: URef,
@@ -45,28 +47,77 @@ impl Dict {
     }
 }
 
-pub struct Balances {
-    dict: Dict,
+pub struct OwnedTokens {
+    tokens_dict: Dict,
+    indexes_dict: Dict,
+    balances_dict: Dict,
 }
 
-impl Balances {
-    pub fn instance() -> Balances {
-        Balances {
-            dict: Dict::at(BALANCES_DICT),
+impl OwnedTokens {
+    pub fn instance() -> OwnedTokens {
+        OwnedTokens {
+            tokens_dict: Dict::at(OWNED_TOKENS_BY_INDEX_DICT),
+            indexes_dict: Dict::at(OWNED_INDEXES_BY_TOKEN_DICT),
+            balances_dict: Dict::at(BALANCES_DICT),
         }
     }
 
-    pub fn get(&self, key: &Key) -> U256 {
-        self.dict.get(&key_to_str(key)).unwrap_or_default()
+    pub fn get_token_by_index(&self, owner: &Key, index: &U256) -> Option<TokenId> {
+        self.tokens_dict.get(&key_and_value_to_str(owner, index))
     }
 
-    pub fn set(&self, key: &Key, value: U256) {
-        self.dict.set(&key_to_str(key), value);
+    pub fn get_index_by_token(&self, owner: &Key, value: &str) -> Option<U256> {
+        self.indexes_dict
+            .get(&key_and_value_to_str(owner, &value.to_string()))
     }
 
-    // pub fn remove(&self, key: &Key) {
-    //     self.dict.remove::<U256>(&key_to_str(key));
-    // }
+    pub fn get_balance(&self, owner: &Key) -> U256 {
+        self.balances_dict
+            .get(&key_to_str(owner))
+            .unwrap_or_default()
+    }
+
+    pub fn set_balance(&self, owner: &Key, value: U256) {
+        self.balances_dict.set(&key_to_str(owner), value);
+    }
+
+    pub fn set_token(&self, owner: &Key, value: &TokenId) {
+        let length = self.get_balance(owner);
+        self.indexes_dict
+            .set(&key_and_value_to_str(owner, value), length);
+        self.tokens_dict
+            .set(&key_and_value_to_str(owner, &length), value.clone());
+        self.set_balance(owner, length + 1);
+    }
+
+    pub fn remove_token(&self, owner: &Key, value: &TokenId) {
+        let length = self.get_balance(owner);
+        let index = self.get_index_by_token(owner, value).unwrap_or_revert();
+        match length.cmp(&(index + 1)) {
+            core::cmp::Ordering::Equal => {
+                self.tokens_dict
+                    .remove::<TokenId>(&key_and_value_to_str(owner, &(length - 1)));
+                self.set_balance(owner, length - 1);
+            }
+            core::cmp::Ordering::Greater => {
+                let last = self.get_token_by_index(owner, &(length - 1));
+                self.indexes_dict.set(
+                    &key_and_value_to_str(owner, &last.clone().unwrap_or_revert()),
+                    index,
+                );
+                self.tokens_dict.set(
+                    &key_and_value_to_str(owner, &index),
+                    last.unwrap_or_revert(),
+                );
+                self.tokens_dict
+                    .remove::<TokenId>(&key_and_value_to_str(owner, &(length - 1)));
+                self.set_balance(owner, length - 1);
+            }
+            core::cmp::Ordering::Less => {}
+        }
+        self.indexes_dict
+            .remove::<U256>(&key_and_value_to_str(owner, value));
+    }
 }
 
 pub struct Owners {
@@ -211,6 +262,8 @@ pub fn initial_named_keys(
     add_empty_dict(&mut named_keys, TOKEN_OWNERS_DICT);
     add_empty_dict(&mut named_keys, TOKEN_ISSUERS_DICT);
     add_empty_dict(&mut named_keys, METADATA_DICT);
+    add_empty_dict(&mut named_keys, OWNED_TOKENS_BY_INDEX_DICT);
+    add_empty_dict(&mut named_keys, OWNED_INDEXES_BY_TOKEN_DICT);
 
     named_keys
 }
@@ -227,6 +280,16 @@ fn key_to_str(key: &Key) -> String {
         Key::Hash(package) => hex::encode(package),
         _ => runtime::revert(ApiError::UnexpectedKeyVariant),
     }
+}
+
+pub fn key_and_value_to_str<T: CLTyped + ToBytes>(key: &Key, value: &T) -> String {
+    let mut bytes_a = key.to_bytes().unwrap_or_revert();
+    let mut bytes_b = value.to_bytes().unwrap_or_revert();
+
+    bytes_a.append(&mut bytes_b);
+
+    let bytes = runtime::blake2b(bytes_a);
+    hex::encode(bytes)
 }
 
 pub fn emit(cep47_event: &CEP47Event) {

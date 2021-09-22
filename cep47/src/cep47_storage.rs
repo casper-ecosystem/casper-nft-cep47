@@ -2,7 +2,7 @@ use casper_contract::{contract_api::runtime, unwrap_or_revert::UnwrapOrRevert};
 use casper_types::{bytesrepr::ToBytes, ApiError, Key, U256};
 use cep47_logic::{CEP47Storage, Meta, TokenId};
 
-use crate::data::{self, Balances, Issuers, Metadata, Owners};
+use crate::data::{self, Issuers, Metadata, OwnedTokens, Owners};
 
 #[derive(Default)]
 pub struct CasperCEP47Storage {}
@@ -25,24 +25,24 @@ impl CEP47Storage for CasperCEP47Storage {
         data::meta()
     }
 
-    fn total_supply(&self) -> U256 {
-        data::total_supply()
-    }
-
     fn balance_of(&self, owner: &Key) -> U256 {
-        Balances::instance().get(owner)
+        OwnedTokens::instance().get_balance(owner)
     }
 
     fn owner_of(&self, token_id: &TokenId) -> Option<Key> {
         Owners::instance().get(token_id)
     }
 
-    fn issuer_of(&self, token_id: &TokenId) -> Option<Key> {
-        Issuers::instance().get(token_id)
+    fn total_supply(&self) -> U256 {
+        data::total_supply()
     }
 
     fn token_meta(&self, token_id: &TokenId) -> Option<Meta> {
         Metadata::instance().get(token_id)
+    }
+
+    fn issuer_of(&self, token_id: &TokenId) -> Option<Key> {
+        Issuers::instance().get(token_id)
     }
 
     fn is_paused(&self) -> bool {
@@ -67,7 +67,7 @@ impl CEP47Storage for CasperCEP47Storage {
         // Prepare dictionaries.
         let owners_dict = Owners::instance();
         let issuers_dict = Issuers::instance();
-        let balances_dict = Balances::instance();
+        let owned_tokens = OwnedTokens::instance();
         let metadata_dict = Metadata::instance();
 
         // Create new tokens.
@@ -80,13 +80,13 @@ impl CEP47Storage for CasperCEP47Storage {
 
             // Set token issuer.
             issuers_dict.set(token_id, *issuer);
+
+            // Update list of owned tokens.
+            owned_tokens.set_token(recipient, token_id);
         }
 
         // Update recipient's balance.
         let new_tokens_count: U256 = token_ids.len().into();
-        let prev_balance = balances_dict.get(recipient);
-        let new_balance = prev_balance + new_tokens_count;
-        balances_dict.set(recipient, new_balance);
 
         // Update total supply.
         let new_total_supply = data::total_supply() + new_tokens_count;
@@ -96,26 +96,21 @@ impl CEP47Storage for CasperCEP47Storage {
     fn transfer_many(&mut self, sender: &Key, recipient: &Key, token_ids: &Vec<TokenId>) {
         // Prepare dictionaries.
         let owners_dict = Owners::instance();
-        let balances_dict = Balances::instance();
+        let owned_tokens = OwnedTokens::instance();
 
         // Update ownerships.
         for token_id in token_ids {
             owners_dict.set(token_id, *recipient);
+            owned_tokens.remove_token(sender, token_id);
+            owned_tokens.set_token(recipient, token_id);
         }
-
-        // Update balances.
-        let amount = token_ids.len();
-        let sender_balance = balances_dict.get(sender);
-        let recipient_balance = balances_dict.get(recipient);
-        balances_dict.set(sender, sender_balance - amount);
-        balances_dict.set(recipient, recipient_balance + amount);
     }
 
     fn burn_many(&mut self, owner: &Key, token_ids: &Vec<TokenId>) {
         // Prepare dictionaries.
         let owners_dict = Owners::instance();
         let issuers_dict = Issuers::instance();
-        let balances_dict = Balances::instance();
+        let owned_tokens = OwnedTokens::instance();
         let metadata_dict = Metadata::instance();
 
         // Remove tokens.
@@ -128,15 +123,13 @@ impl CEP47Storage for CasperCEP47Storage {
 
             // Remove issuer info.
             issuers_dict.remove(token_id);
+
+            // Remove owned tokens.
+            owned_tokens.remove_token(owner, token_id);
         }
 
-        // Decrement owner's balance.
-        let amount: U256 = token_ids.len().into();
-        let prev_balance = balances_dict.get(owner);
-        let new_balance = prev_balance - amount;
-        balances_dict.set(owner, new_balance);
-
         // Decrement total supply.
+        let amount: U256 = token_ids.len().into();
         let new_total_supply = data::total_supply() - amount;
         data::update_total_supply(new_total_supply);
     }
@@ -173,14 +166,6 @@ impl CEP47Storage for CasperCEP47Storage {
         true
     }
 
-    fn emit(&mut self, event: cep47_logic::events::CEP47Event) {
-        data::emit(&event)
-    }
-
-    fn contact_package_hash(&self) -> casper_types::ContractPackageHash {
-        data::contract_package_hash()
-    }
-
     fn are_all_owner_tokens(&self, owner: &Key, token_ids: &Vec<TokenId>) -> bool {
         let owners_dict = Owners::instance();
         for token_id in token_ids.iter() {
@@ -192,5 +177,13 @@ impl CEP47Storage for CasperCEP47Storage {
             }
         }
         true
+    }
+
+    fn emit(&mut self, event: cep47_logic::events::CEP47Event) {
+        data::emit(&event)
+    }
+
+    fn contact_package_hash(&self) -> casper_types::ContractPackageHash {
+        data::contract_package_hash()
     }
 }

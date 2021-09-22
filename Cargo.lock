@@ -225,6 +225,7 @@ dependencies = [
 name = "cep47-tests"
 version = "0.1.0"
 dependencies = [
+ "blake2",
  "casper-contract",
  "casper-engine-test-support",
  "casper-types",

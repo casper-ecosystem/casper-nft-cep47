@@ -56,6 +56,12 @@ pub fn get_entrypoints(package_hash: Option<ContractPackageHash>) -> EntryPoints
         None,
     ));
     entry_points.add_entry_point(endpoint(
+        "issuer_of",
+        vec![Parameter::new("token_id", TokenId::cl_type())],
+        CLType::Option(Box::new(CLType::Key)),
+        None,
+    ));
+    entry_points.add_entry_point(endpoint(
         "token_meta",
         vec![Parameter::new("token_id", TokenId::cl_type())],
         CLType::Option(Box::new(CLType::String)),

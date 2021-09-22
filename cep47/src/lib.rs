@@ -41,7 +41,7 @@ mod entrypoints;
 pub use cep47_storage::CasperCEP47Storage;
 pub use entrypoints::get_entrypoints;
 
-use data::{Balances, Metadata, Owners};
+use data::{Metadata, OwnedTokens, Owners};
 
 #[derive(Default)]
 pub struct CasperCEP47Contract {
@@ -104,6 +104,14 @@ pub extern "C" fn owner_of() {
     ret(contract.owner_of(&token_id))
 }
 
+#[cfg(not(feature = "no_issuer_of"))]
+#[no_mangle]
+pub extern "C" fn issuer_of() {
+    let token_id: TokenId = runtime::get_named_arg("token_id");
+    let contract = CasperCEP47Contract::new();
+    ret(contract.issuer_of(&token_id))
+}
+
 #[cfg(not(feature = "no_total_supply"))]
 #[no_mangle]
 pub extern "C" fn total_supply() {
@@ -146,9 +154,10 @@ pub extern "C" fn mint_one() {
     let recipient: Key = runtime::get_named_arg("recipient");
     let token_id: Option<TokenId> = runtime::get_named_arg("token_id");
     let token_meta: Meta = runtime::get_named_arg("token_meta");
+    let issuer = get_caller();
     let mut contract = CasperCEP47Contract::new();
     contract
-        .mint_one(&recipient, token_id, token_meta)
+        .mint_one(&issuer, &recipient, token_id, token_meta)
         .unwrap_or_revert();
 }
 
@@ -158,9 +167,10 @@ pub extern "C" fn mint_many() {
     let recipient: Key = runtime::get_named_arg("recipient");
     let token_ids: Option<Vec<TokenId>> = runtime::get_named_arg("token_ids");
     let token_metas: Vec<Meta> = runtime::get_named_arg("token_metas");
+    let issuer = get_caller();
     let mut contract = CasperCEP47Contract::new();
     contract
-        .mint_many(&recipient, token_ids, token_metas)
+        .mint_many(&issuer, &recipient, token_ids, token_metas)
         .unwrap_or_revert();
 }
 
@@ -171,9 +181,10 @@ pub extern "C" fn mint_copies() {
     let token_ids: Option<Vec<TokenId>> = runtime::get_named_arg("token_ids");
     let token_meta: Meta = runtime::get_named_arg("token_meta");
     let count: u32 = runtime::get_named_arg("count");
+    let issuer = get_caller();
     let mut contract = CasperCEP47Contract::new();
     contract
-        .mint_copies(&recipient, token_ids, token_meta, count)
+        .mint_copies(&issuer, &recipient, token_ids, token_meta, count)
         .unwrap_or_revert();
 }
 

@@ -1,10 +1,15 @@
-use std::collections::BTreeMap;
-
+use blake2::{
+    digest::{Update, VariableOutput},
+    VarBlake2b,
+};
 use casper_engine_test_support::{Code, Hash, SessionBuilder, TestContext, TestContextBuilder};
 use casper_types::{
-    account::AccountHash, bytesrepr::FromBytes, runtime_args, CLTyped, ContractPackageHash,
-    HashAddr, Key, PublicKey, RuntimeArgs, SecretKey, U256, U512,
+    account::AccountHash,
+    bytesrepr::{FromBytes, ToBytes},
+    runtime_args, CLTyped, ContractPackageHash, HashAddr, Key, PublicKey, RuntimeArgs, SecretKey,
+    U256, U512,
 };
+use std::collections::BTreeMap;
 
 pub mod token_cfg {
     use super::Meta;
@@ -25,6 +30,7 @@ pub const CONTRACT_HASH_KEY: &str = "DragonsNFT_contract_hash";
 
 const BALANCES_DICT: &str = "balances";
 const TOKEN_OWNERS_DICT: &str = "owners";
+const TOKEN_ISSUERS_DICT: &str = "issuers";
 const METADATA_DICT: &str = "metadata";
 
 pub struct CasperCEP47Contract {
@@ -165,9 +171,33 @@ impl CasperCEP47Contract {
         self.query_dictionary_value::<Key>(TOKEN_OWNERS_DICT, token_id.clone())
     }
 
+    pub fn get_token_by_index<T: Into<Key> + Clone, K: Into<U256>>(
+        &self,
+        account: &T,
+        index: K,
+    ) -> Option<TokenId> {
+        let key: Key = account.clone().into();
+        let value: U256 = index.into();
+        self.query_dictionary_value("owned_tokens_by_index", key_and_value_to_str(&key, &value))
+    }
+
+    pub fn get_tokens_of<T: Into<Key> + Clone>(&self, account: &T) -> Vec<TokenId> {
+        let owner: Key = account.clone().into();
+        let balance: u32 = self.balance_of(&owner).as_u32();
+        let mut token_ids = Vec::new();
+        for i in 0..balance {
+            let token_id = self.get_token_by_index(account, i).unwrap();
+            token_ids.push(token_id);
+        }
+        token_ids
+    }
+
+    pub fn issuer_of(&self, token_id: &TokenId) -> Option<Key> {
+        self.query_dictionary_value::<Key>(TOKEN_ISSUERS_DICT, token_id.clone())
+    }
+
     pub fn balance_of(&self, owner: &Key) -> U256 {
-        let value: Option<U256> =
-            self.query_dictionary_value(BALANCES_DICT, Self::key_to_str(owner));
+        let value: Option<U256> = self.query_dictionary_value(BALANCES_DICT, key_to_str(owner));
         value.unwrap_or_default()
     }
 
@@ -327,12 +357,21 @@ impl CasperCEP47Contract {
     pub fn is_paused(&mut self) -> bool {
         self.query_contract("paused").unwrap()
     }
+}
 
-    fn key_to_str(key: &Key) -> String {
-        match key {
-            Key::Account(account) => account.to_string(),
-            Key::Hash(package) => hex::encode(package),
-            _ => panic!(),
-        }
+fn key_to_str(key: &Key) -> String {
+    match key {
+        Key::Account(account) => account.to_string(),
+        Key::Hash(package) => hex::encode(package),
+        _ => panic!(),
     }
+}
+
+fn key_and_value_to_str<T: CLTyped + ToBytes>(key: &Key, value: &T) -> String {
+    let mut hasher = VarBlake2b::new(32).unwrap();
+    hasher.update(key.to_bytes().unwrap());
+    hasher.update(value.to_bytes().unwrap());
+    let mut ret = [0u8; 32];
+    hasher.finalize_variable(|hash| ret.clone_from_slice(hash));
+    hex::encode(ret)
 }

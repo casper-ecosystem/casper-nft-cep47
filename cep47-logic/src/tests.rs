@@ -21,6 +21,7 @@ struct TestStorage {
     token_metas: BTreeMap<TokenId, Meta>,
     balances: BTreeMap<Key, U256>,
     belongs_to: BTreeMap<TokenId, Key>,
+    issuers: BTreeMap<TokenId, Key>,
     urefs: BTreeMap<URef, TokenId>,
     token_id_generator: u32,
 }
@@ -36,6 +37,7 @@ impl TestStorage {
             tokens: BTreeMap::new(),
             balances: BTreeMap::new(),
             belongs_to: BTreeMap::new(),
+            issuers: BTreeMap::new(),
             token_metas: BTreeMap::new(),
             urefs: BTreeMap::new(),
             token_id_generator: 1,
@@ -66,6 +68,11 @@ impl CEP47Storage for TestStorage {
         owner.cloned()
     }
 
+    fn issuer_of(&self, token_id: &TokenId) -> Option<Key> {
+        let owner = self.issuers.get(token_id);
+        owner.cloned()
+    }
+
     fn total_supply(&self) -> U256 {
         self.total_supply
     }
@@ -87,7 +94,13 @@ impl CEP47Storage for TestStorage {
         self.paused = false;
     }
 
-    fn mint_many(&mut self, recipient: &Key, token_ids: &Vec<TokenId>, token_metas: &Vec<Meta>) {
+    fn mint_many(
+        &mut self,
+        issuer: &Key,
+        recipient: &Key,
+        token_ids: &Vec<TokenId>,
+        token_metas: &Vec<Meta>,
+    ) {
         let amount = token_ids.len();
 
         // Update balance.
@@ -102,6 +115,7 @@ impl CEP47Storage for TestStorage {
             self.token_metas
                 .insert(token_id.clone(), token_meta.clone());
             self.belongs_to.insert(token_id.clone(), *recipient);
+            self.issuers.insert(token_id.clone(), *issuer);
         }
     }
 
@@ -130,6 +144,7 @@ impl CEP47Storage for TestStorage {
         for token_id in token_ids.iter() {
             self.belongs_to.remove(token_id);
             self.token_metas.remove(token_id);
+            self.issuers.remove(token_id);
         }
     }
 
@@ -260,12 +275,14 @@ fn test_mint_many() {
     contract
         .mint_many(
             &ali,
+            &ali,
             Some(ali_token_ids),
             vec![meta::banana(), meta::orange()],
         )
         .unwrap();
     contract
         .mint_many(
+            &bob,
             &bob,
             Some(bob_token_ids),
             vec![meta::banana(), meta::apple()],
@@ -284,6 +301,12 @@ fn test_mint_many() {
     assert_eq!(&contract.owner_of(&ali_second_token_id).unwrap(), &ali);
     assert_eq!(&contract.owner_of(&bob_first_token_id).unwrap(), &bob);
     assert_eq!(&contract.owner_of(&bob_second_token_id).unwrap(), &bob);
+
+    // Check issuers.
+    assert_eq!(&contract.issuer_of(&ali_first_token_id).unwrap(), &ali);
+    assert_eq!(&contract.issuer_of(&ali_second_token_id).unwrap(), &ali);
+    assert_eq!(&contract.issuer_of(&bob_first_token_id).unwrap(), &bob);
+    assert_eq!(&contract.issuer_of(&bob_second_token_id).unwrap(), &bob);
 
     // Check metas.
     assert_eq!(
@@ -309,13 +332,15 @@ fn test_mint_copies() {
     let mut contract = TestContract::new();
     let ali_pk = PublicKey::ed25519_from_bytes([3u8; 32]).unwrap();
     let ali: Key = ali_pk.to_account_hash().into();
+    let bob_pk = PublicKey::ed25519_from_bytes([9u8; 32]).unwrap();
+    let bob: Key = bob_pk.to_account_hash().into();
     let token_ids: Vec<String> = vec!["a", "b", "c", "d", "e", "f", "g"]
         .into_iter()
         .map(String::from)
         .collect();
 
     contract
-        .mint_copies(&ali, Some(token_ids.clone()), meta::apple(), 7)
+        .mint_copies(&bob, &ali, Some(token_ids.clone()), meta::apple(), 7)
         .unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(7));
@@ -323,6 +348,7 @@ fn test_mint_copies() {
 
     for token_id in &token_ids {
         assert_eq!(contract.owner_of(token_id).unwrap(), ali);
+        assert_eq!(contract.issuer_of(token_id).unwrap(), bob);
         assert_eq!(contract.token_meta(token_id).unwrap(), meta::apple());
     }
 }
@@ -341,7 +367,7 @@ fn test_burn_many() {
         .collect();
 
     contract
-        .mint_copies(&ali, Some(token_ids), meta::banana(), 5)
+        .mint_copies(&ali, &ali, Some(token_ids), meta::banana(), 5)
         .unwrap();
 
     contract.burn_many(&ali, tokens_to_burn.clone()).unwrap();
@@ -353,12 +379,14 @@ fn test_burn_many() {
     // Check burned tokens
     for token_id in &tokens_to_burn {
         assert!(contract.owner_of(token_id).is_none());
+        assert!(contract.issuer_of(token_id).is_none());
         assert!(contract.token_meta(token_id).is_none());
     }
 
     // Check rest of tokens.
     for token_id in &tokens_to_remain {
         assert_eq!(&contract.owner_of(token_id).unwrap(), &ali);
+        assert_eq!(&contract.issuer_of(token_id).unwrap(), &ali);
         assert_eq!(&contract.token_meta(token_id).unwrap(), &meta::banana());
     }
 }
@@ -377,7 +405,7 @@ fn test_burn_one() {
         .collect();
 
     contract
-        .mint_copies(&ali, Some(token_ids), meta::banana(), 4)
+        .mint_copies(&ali, &ali, Some(token_ids), meta::banana(), 4)
         .unwrap();
 
     contract.burn_one(&ali, token_to_burn.clone()).unwrap();
@@ -388,11 +416,13 @@ fn test_burn_one() {
 
     // Check burned tokens
     assert!(contract.owner_of(&token_to_burn).is_none());
+    assert!(contract.issuer_of(&token_to_burn).is_none());
     assert!(contract.token_meta(&token_to_burn).is_none());
 
     // Check rest of tokens.
     for token_id in &tokens_to_remain {
         assert_eq!(&contract.owner_of(token_id).unwrap(), &ali);
+        assert_eq!(&contract.issuer_of(token_id).unwrap(), &ali);
         assert_eq!(&contract.token_meta(token_id).unwrap(), &meta::banana());
     }
 }
@@ -406,7 +436,7 @@ fn test_transfer_token() {
     let token_id: TokenId = "apple".to_string();
 
     contract
-        .mint_one(&ali, Some(token_id.clone()), meta::apple())
+        .mint_one(&ali, &ali, Some(token_id.clone()), meta::apple())
         .unwrap();
 
     assert_eq!(contract.total_supply(), U256::from(1));
@@ -418,6 +448,7 @@ fn test_transfer_token() {
     assert_eq!(contract.balance_of(&ali), U256::from(0));
     assert_eq!(contract.balance_of(&bob), U256::from(1));
     assert_eq!(contract.owner_of(&token_id).unwrap(), bob);
+    assert_eq!(contract.issuer_of(&token_id).unwrap(), ali);
 }
 
 #[test]
@@ -436,7 +467,7 @@ fn test_transfer_many_tokens() {
         .collect();
 
     contract
-        .mint_copies(&ali, Some(token_ids), meta::banana(), 5)
+        .mint_copies(&ali, &ali, Some(token_ids), meta::banana(), 5)
         .unwrap();
 
     contract
@@ -450,11 +481,13 @@ fn test_transfer_many_tokens() {
     // Check ali tokens.
     for token_id in &tokens_to_remain {
         assert_eq!(&contract.owner_of(token_id).unwrap(), &ali);
+        assert_eq!(&contract.issuer_of(token_id).unwrap(), &ali);
     }
 
     // Check bob tokens.
     for token_id in &tokens_to_transfer {
         assert_eq!(&contract.owner_of(token_id).unwrap(), &bob);
+        assert_eq!(&contract.issuer_of(token_id).unwrap(), &ali);
     }
 }
 
@@ -465,7 +498,7 @@ fn test_update_metadata() {
     let ali: Key = ali_pk.to_account_hash().into();
 
     let token_id = TokenId::from("new_token");
-    let _: Result<(), Error> = contract.mint_one(&ali, Some(token_id.clone()), meta::apple());
+    let _: Result<(), Error> = contract.mint_one(&ali, &ali, Some(token_id.clone()), meta::apple());
     assert_eq!(meta::apple(), contract.token_meta(&token_id).unwrap());
     let _: Result<(), Error> = contract.update_token_metadata(token_id.clone(), meta::banana());
     assert_eq!(meta::banana(), contract.token_meta(&token_id).unwrap());

@@ -46,11 +46,13 @@ fn test_token_meta() {
     let token_id = String::from("custom_token_id");
     let token_meta = meta::red_dragon();
     let ali = Key::Account(contract.ali);
+    let admin = Key::Account(contract.admin);
 
     contract.mint_one(&ali, Some(&token_id), &token_meta, &contract.admin.clone());
 
     assert_eq!(contract.token_meta(&token_id).unwrap(), token_meta);
     assert_eq!(contract.owner_of(&token_id).unwrap(), ali);
+    assert_eq!(contract.issuer_of(&token_id).unwrap(), admin);
 }
 
 #[test]
@@ -63,6 +65,9 @@ fn test_mint_one_with_random_token_id() {
 
     assert_eq!(contract.total_supply(), U256::one());
     assert_eq!(contract.balance_of(&ali), U256::one());
+    assert_eq!(contract.get_tokens_of(&ali).len(), 1);
+    assert!(contract.get_token_by_index(&ali, 0).is_some());
+    assert!(contract.get_token_by_index(&ali, 1).is_none());
 }
 
 #[test]
@@ -71,12 +76,15 @@ fn test_mint_one_with_set_token_id() {
     let token_id = TokenId::from("123456");
     let token_meta = meta::red_dragon();
     let ali = Key::Account(contract.ali);
+    let admin = Key::Account(contract.admin);
 
     contract.mint_one(&ali, Some(&token_id), &token_meta, &contract.admin.clone());
 
     assert_eq!(contract.total_supply(), U256::one());
     assert_eq!(contract.balance_of(&ali), U256::one());
     assert_eq!(contract.owner_of(&token_id).unwrap(), ali);
+    assert_eq!(contract.issuer_of(&token_id).unwrap(), admin);
+    assert_eq!(contract.get_tokens_of(&ali), vec![token_id]);
 }
 
 #[test]
@@ -105,6 +113,8 @@ fn test_mint_copies() {
     let token_meta = meta::gold_dragon();
     let token_ids = vec![TokenId::from("a"), TokenId::from("b")];
     let ali = Key::Account(contract.ali);
+    let admin = Key::Account(contract.admin);
+
     contract.mint_copies(
         &ali,
         Some(&token_ids),
@@ -115,9 +125,11 @@ fn test_mint_copies() {
 
     assert_eq!(contract.total_supply(), U256::from(2));
     assert_eq!(contract.balance_of(&ali), U256::from(2));
+    assert_eq!(contract.get_tokens_of(&ali), token_ids);
 
     for token_id in token_ids {
         assert_eq!(&contract.owner_of(&token_id).unwrap(), &ali);
+        assert_eq!(&contract.issuer_of(&token_id).unwrap(), &admin);
         assert_eq!(&contract.token_meta(&token_id).unwrap(), &token_meta);
     }
 }
@@ -128,6 +140,8 @@ fn test_mint_many() {
     let token_metas = vec![meta::gold_dragon(), meta::black_dragon()];
     let token_ids = vec![TokenId::from("a"), TokenId::from("b")];
     let ali = Key::Account(contract.ali);
+    let admin = Key::Account(contract.admin);
+
     contract.mint_many(
         &ali,
         Some(&token_ids),
@@ -137,9 +151,11 @@ fn test_mint_many() {
 
     assert_eq!(contract.total_supply(), U256::from(2));
     assert_eq!(contract.balance_of(&ali), U256::from(2));
+    assert_eq!(contract.get_tokens_of(&ali), token_ids);
 
     for (token_id, token_meta) in token_ids.iter().zip(token_metas) {
         assert_eq!(&contract.owner_of(token_id).unwrap(), &ali);
+        assert_eq!(&contract.issuer_of(token_id).unwrap(), &admin);
         assert_eq!(&contract.token_meta(token_id).unwrap(), &token_meta);
     }
 }
@@ -155,6 +171,7 @@ fn test_burn_many() {
         .collect();
     let token_meta = meta::black_dragon();
     let ali = Key::Account(contract.ali);
+    let admin = Key::Account(contract.admin);
 
     contract.mint_copies(
         &ali,
@@ -168,14 +185,17 @@ fn test_burn_many() {
 
     assert_eq!(contract.total_supply(), U256::from(3));
     assert_eq!(contract.balance_of(&ali), U256::from(3));
+    assert_eq!(sorted(contract.get_tokens_of(&ali)), tokens_to_keep);
 
     for token_id in tokens_to_burn {
         assert!(&contract.owner_of(&token_id).is_none());
+        assert!(&contract.issuer_of(&token_id).is_none());
         assert!(&contract.token_meta(&token_id).is_none());
     }
 
     for token_id in tokens_to_keep {
         assert_eq!(&contract.owner_of(&token_id).unwrap(), &ali);
+        assert_eq!(&contract.issuer_of(&token_id).unwrap(), &admin);
         assert_eq!(&contract.token_meta(&token_id).unwrap(), &token_meta);
     }
 }
@@ -191,6 +211,7 @@ fn test_burn_one() {
         .collect();
     let token_meta = meta::black_dragon();
     let ali = Key::Account(contract.ali);
+    let admin = Key::Account(contract.admin);
 
     contract.mint_copies(
         &ali,
@@ -204,12 +225,15 @@ fn test_burn_one() {
 
     assert_eq!(contract.total_supply(), U256::from(3));
     assert_eq!(contract.balance_of(&ali), U256::from(3));
+    assert_eq!(sorted(contract.get_tokens_of(&ali)), tokens_to_keep);
 
     assert!(&contract.owner_of(&token_to_burn).is_none());
+    assert!(&contract.issuer_of(&token_to_burn).is_none());
     assert!(&contract.token_meta(&token_to_burn).is_none());
 
     for token_id in tokens_to_keep {
         assert_eq!(&contract.owner_of(&token_id).unwrap(), &ali);
+        assert_eq!(&contract.issuer_of(&token_id).unwrap(), &admin);
         assert_eq!(&contract.token_meta(&token_id).unwrap(), &token_meta);
     }
 }
@@ -226,6 +250,7 @@ fn test_transfer_token() {
     let token_meta = meta::black_dragon();
     let ali = Key::Account(contract.ali);
     let bob = Key::Account(contract.bob);
+    let admin = Key::Account(contract.admin);
 
     contract.mint_copies(
         &ali,
@@ -241,9 +266,16 @@ fn test_transfer_token() {
     assert_eq!(contract.balance_of(&ali), U256::from(3));
     assert_eq!(contract.balance_of(&bob), U256::from(1));
     assert_eq!(&contract.owner_of(&token_to_transfer).unwrap(), &bob);
+    assert_eq!(&contract.issuer_of(&token_to_transfer).unwrap(), &admin);
+    assert_eq!(sorted(contract.get_tokens_of(&ali)), tokens_to_keep);
+    assert_eq!(
+        sorted(contract.get_tokens_of(&bob)),
+        vec![token_to_transfer]
+    );
 
     for token_id in tokens_to_keep {
         assert_eq!(&contract.owner_of(&token_id).unwrap(), &ali);
+        assert_eq!(&contract.issuer_of(&token_id).unwrap(), &admin);
     }
 }
 
@@ -260,6 +292,7 @@ fn test_transfer_many_tokens() {
     let token_meta = meta::black_dragon();
     let ali = Key::Account(contract.ali);
     let bob = Key::Account(contract.bob);
+    let admin = Key::Account(contract.admin);
 
     contract.mint_copies(
         &ali,
@@ -274,13 +307,17 @@ fn test_transfer_many_tokens() {
     assert_eq!(contract.total_supply(), U256::from(5));
     assert_eq!(contract.balance_of(&ali), U256::from(3));
     assert_eq!(contract.balance_of(&bob), U256::from(2));
+    assert_eq!(sorted(contract.get_tokens_of(&ali)), tokens_to_keep);
+    assert_eq!(sorted(contract.get_tokens_of(&bob)), tokens_to_transfer);
 
     for token_id in tokens_to_keep {
         assert_eq!(&contract.owner_of(&token_id).unwrap(), &ali);
+        assert_eq!(&contract.issuer_of(&token_id).unwrap(), &admin);
     }
 
     for token_id in tokens_to_transfer {
         assert_eq!(&contract.owner_of(&token_id).unwrap(), &bob);
+        assert_eq!(&contract.issuer_of(&token_id).unwrap(), &admin);
     }
 }
 
@@ -309,6 +346,7 @@ fn test_contract_owning_token() {
     let token_meta = meta::red_dragon();
     let contract_address = Key::Hash(package);
     let ali = Key::Account(contract.ali);
+    let admin = Key::Account(contract.admin);
 
     contract.mint_one(
         &contract_address,
@@ -320,12 +358,14 @@ fn test_contract_owning_token() {
     assert_eq!(contract.total_supply(), U256::from(1));
     assert_eq!(contract.balance_of(&contract_address), U256::from(1));
     assert_eq!(&contract.owner_of(&token_id).unwrap(), &contract_address);
+    assert_eq!(&contract.issuer_of(&token_id).unwrap(), &admin);
 
     contract.transfer_token_from_contract(&contract.admin.clone(), &contract_hash, &ali, &token_id);
 
     assert_eq!(contract.balance_of(&contract_address), U256::from(0));
     assert_eq!(contract.balance_of(&ali), U256::from(1));
     assert_eq!(&contract.owner_of(&token_id).unwrap(), &ali);
+    assert_eq!(&contract.issuer_of(&token_id).unwrap(), &admin);
 }
 
 #[test]
@@ -397,4 +437,9 @@ fn test_paused_field() {
     assert!(contract.is_paused());
     contract.unpause(&contract.admin.clone());
     assert!(!contract.is_paused());
+}
+
+fn sorted<T: Ord>(mut list: Vec<T>) -> Vec<T> {
+    list.sort();
+    list
 }

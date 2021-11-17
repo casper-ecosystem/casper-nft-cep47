@@ -1,11 +1,11 @@
 use crate::{
+    alloc::string::ToString,
     data::{self, Allowances, Metadata, OwnedTokens, Owners},
     event::CEP47Event,
     Meta, TokenId,
 };
 use alloc::{string::String, vec::Vec};
-use casper_contract::{contract_api::runtime, unwrap_or_revert::UnwrapOrRevert};
-use casper_types::{bytesrepr::ToBytes, ApiError, Key, U256};
+use casper_types::{ApiError, Key, U256};
 use contract_utils::{ContractContext, ContractStorage};
 
 #[repr(u16)]
@@ -78,20 +78,6 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         OwnedTokens::instance().get_token_by_index(&owner, &index)
     }
 
-    fn generate_token_ids(&mut self, n: u32) -> Vec<TokenId> {
-        let block_time = runtime::get_blocktime();
-        let mut token_ids = Vec::new();
-        let nonce = data::nonce();
-        for i in nonce..nonce + n {
-            let mut bytes: Vec<u8> = block_time.to_bytes().unwrap_or_revert();
-            bytes.append(&mut i.to_bytes().unwrap_or_revert());
-            let hash = runtime::blake2b(bytes);
-            token_ids.push(hex::encode(hash));
-        }
-        data::set_nonce(nonce + n);
-        token_ids
-    }
-
     fn validate_token_ids(&self, token_ids: Vec<TokenId>) -> bool {
         for token_id in &token_ids {
             if self.owner_of(token_id.clone()).is_some() {
@@ -101,68 +87,41 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         true
     }
 
-    fn mint(
-        &mut self,
-        recipient: Key,
-        token_ids: Option<Vec<TokenId>>,
-        token_metas: Vec<Meta>,
-    ) -> Result<Vec<TokenId>, Error> {
-        let mut valid_token_metas = token_metas;
-        let unique_token_ids = match token_ids {
-            // Validate token_ids and metas.
-            Some(token_ids) => {
-                if token_ids.len() != valid_token_metas.len() {
-                    return Err(Error::WrongArguments);
-                };
-                let valid = self.validate_token_ids(token_ids.clone());
-                if !valid {
-                    return Err(Error::TokenIdAlreadyExists);
-                };
-                token_ids
-            }
-            None => {
-                if valid_token_metas.is_empty() {
-                    valid_token_metas = vec![Meta::new()];
-                }
-                self.generate_token_ids(valid_token_metas.len() as u32)
-            }
-        };
-
+    fn mint(&mut self, recipient: Key, token_metas: Vec<Meta>) -> Result<Vec<TokenId>, Error> {
+        let mut token_id = data::nonce();
+        let mut token_ids = vec![];
         let owners_dict = Owners::instance();
         let owned_tokens_dict = OwnedTokens::instance();
         let metadata_dict = Metadata::instance();
-
-        for (token_id, token_meta) in unique_token_ids.iter().zip(&valid_token_metas) {
-            metadata_dict.set(token_id, token_meta.clone());
-            owners_dict.set(token_id, recipient);
-            owned_tokens_dict.set_token(&recipient, token_id.clone());
+        for token_meta in token_metas {
+            let str_token_id = token_id.to_string();
+            token_ids.push(str_token_id.clone());
+            metadata_dict.set(&str_token_id, token_meta.clone());
+            owners_dict.set(&str_token_id, recipient);
+            owned_tokens_dict.set_token(&recipient, str_token_id);
+            token_id += U256::one();
         }
+        data::set_nonce(token_id);
 
-        let minted_tokens_count = U256::from(unique_token_ids.len() as u64);
+        let minted_tokens_count = U256::from(token_ids.len() as u64);
         let new_total_supply = data::total_supply() + minted_tokens_count;
         data::set_total_supply(new_total_supply);
 
         self.emit(CEP47Event::Mint {
             recipient,
-            token_ids: unique_token_ids.clone(),
+            token_ids: token_ids.clone(),
         });
-        Ok(unique_token_ids)
+        Ok(token_ids)
     }
 
     fn mint_copies(
         &mut self,
         recipient: Key,
-        token_ids: Option<Vec<TokenId>>,
         token_meta: Meta,
         count: u32,
     ) -> Result<Vec<TokenId>, Error> {
-        if let Some(token_ids) = &token_ids {
-            if token_ids.len() != count as usize {
-                return Err(Error::WrongArguments);
-            }
-        }
         let token_metas = vec![token_meta; count as usize];
-        self.mint(recipient, token_ids, token_metas)
+        self.mint(recipient, token_metas)
     }
 
     fn burn(&mut self, owner: Key, token_ids: Vec<TokenId>) -> Result<(), Error> {

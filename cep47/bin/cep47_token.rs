@@ -111,21 +111,19 @@ fn update_token_meta() {
 #[no_mangle]
 fn mint() {
     let recipient = runtime::get_named_arg::<Key>("recipient");
-    let token_ids = runtime::get_named_arg::<Option<Vec<TokenId>>>("token_ids");
     let token_metas = runtime::get_named_arg::<Vec<Meta>>("token_metas");
     NFTToken::default()
-        .mint(recipient, token_ids, token_metas)
+        .mint(recipient, token_metas)
         .unwrap_or_revert();
 }
 
 #[no_mangle]
 fn mint_copies() {
     let recipient = runtime::get_named_arg::<Key>("recipient");
-    let token_ids = runtime::get_named_arg::<Option<Vec<TokenId>>>("token_ids");
     let token_meta = runtime::get_named_arg::<Meta>("token_meta");
     let count = runtime::get_named_arg::<u32>("count");
     NFTToken::default()
-        .mint_copies(recipient, token_ids, token_meta, count)
+        .mint_copies(recipient, token_meta, count)
         .unwrap_or_revert();
 }
 
@@ -315,10 +313,6 @@ fn get_entry_points() -> EntryPoints {
         "mint",
         vec![
             Parameter::new("recipient", Key::cl_type()),
-            Parameter::new(
-                "token_ids",
-                CLType::Option(Box::new(CLType::List(Box::new(TokenId::cl_type())))),
-            ),
             Parameter::new("token_metas", CLType::List(Box::new(Meta::cl_type()))),
         ],
         <()>::cl_type(),
@@ -329,10 +323,6 @@ fn get_entry_points() -> EntryPoints {
         "mint_copies",
         vec![
             Parameter::new("recipient", Key::cl_type()),
-            Parameter::new(
-                "token_ids",
-                CLType::Option(Box::new(CLType::List(Box::new(TokenId::cl_type())))),
-            ),
             Parameter::new("token_meta", Meta::cl_type()),
             Parameter::new("count", CLType::U32),
         ],

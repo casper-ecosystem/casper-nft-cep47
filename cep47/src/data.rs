@@ -223,11 +223,11 @@ pub fn set_total_supply(total_supply: U256) {
     set_key(TOTAL_SUPPLY, total_supply);
 }
 
-pub fn nonce() -> u32 {
+pub fn nonce() -> U256 {
     get_key(NONCE).unwrap_or_default()
 }
 
-pub fn set_nonce(nonce: u32) {
+pub fn set_nonce(nonce: U256) {
     set_key(NONCE, nonce);
 }
 

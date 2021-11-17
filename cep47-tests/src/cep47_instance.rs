@@ -45,19 +45,12 @@ impl CEP47Instance {
         );
     }
 
-    pub fn mint_one<T: Into<Key>>(
-        &self,
-        sender: Sender,
-        recipient: T,
-        token_id: Option<TokenId>,
-        token_meta: Meta,
-    ) {
+    pub fn mint_one<T: Into<Key>>(&self, sender: Sender, recipient: T, token_meta: Meta) {
         self.0.call_contract(
             sender,
             "mint",
             runtime_args! {
                 "recipient" => recipient.into(),
-                "token_ids" => token_id.map(|x| vec![x]),
                 "token_metas" => vec![token_meta]
             },
         )
@@ -67,7 +60,6 @@ impl CEP47Instance {
         &self,
         sender: Sender,
         recipient: T,
-        token_ids: Option<Vec<TokenId>>,
         token_meta: Meta,
         count: u32,
     ) {
@@ -76,26 +68,18 @@ impl CEP47Instance {
             "mint_copies",
             runtime_args! {
                 "recipient" => recipient.into(),
-                "token_ids" => token_ids,
                 "token_meta" => token_meta,
                 "count" => count
             },
         )
     }
 
-    pub fn mint_many<T: Into<Key>>(
-        &self,
-        sender: Sender,
-        recipient: T,
-        token_ids: Option<Vec<TokenId>>,
-        token_metas: Vec<Meta>,
-    ) {
+    pub fn mint_many<T: Into<Key>>(&self, sender: Sender, recipient: T, token_metas: Vec<Meta>) {
         self.0.call_contract(
             sender,
             "mint",
             runtime_args! {
                 "recipient" => recipient.into(),
-                "token_ids" => token_ids,
                 "token_metas" => token_metas
             },
         )

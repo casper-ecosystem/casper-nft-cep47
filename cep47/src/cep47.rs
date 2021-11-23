@@ -1,5 +1,4 @@
 use crate::{
-    alloc::string::ToString,
     data::{self, Allowances, Metadata, OwnedTokens, Owners},
     event::CEP47Event,
     Meta, TokenId,
@@ -63,7 +62,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
     }
 
     fn set_token_meta(&mut self, token_id: TokenId, meta: Meta) -> Result<(), Error> {
-        if self.owner_of(token_id.clone()).is_none() {
+        if self.owner_of(token_id).is_none() {
             return Err(Error::TokenIdDoesntExist);
         };
 
@@ -80,28 +79,32 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
 
     fn validate_token_ids(&self, token_ids: Vec<TokenId>) -> bool {
         for token_id in &token_ids {
-            if self.owner_of(token_id.clone()).is_some() {
+            if self.owner_of(*token_id).is_some() {
                 return false;
             }
         }
         true
     }
 
-    fn mint(&mut self, recipient: Key, token_metas: Vec<Meta>) -> Result<Vec<TokenId>, Error> {
-        let mut token_id = data::nonce();
-        let mut token_ids = vec![];
+    fn mint(
+        &mut self,
+        recipient: Key,
+        token_ids: Vec<TokenId>,
+        token_metas: Vec<Meta>,
+    ) -> Result<Vec<TokenId>, Error> {
+        if token_ids.len() != token_metas.len() {
+            return Err(Error::WrongArguments);
+        };
+
         let owners_dict = Owners::instance();
         let owned_tokens_dict = OwnedTokens::instance();
         let metadata_dict = Metadata::instance();
-        for token_meta in token_metas {
-            let str_token_id = token_id.to_string();
-            token_ids.push(str_token_id.clone());
-            metadata_dict.set(&str_token_id, token_meta.clone());
-            owners_dict.set(&str_token_id, recipient);
-            owned_tokens_dict.set_token(&recipient, str_token_id);
-            token_id += U256::one();
+
+        for (token_id, token_meta) in token_ids.iter().zip(&token_metas) {
+            metadata_dict.set(token_id, token_meta.clone());
+            owners_dict.set(token_id, recipient);
+            owned_tokens_dict.set_token(&recipient, token_id);
         }
-        data::set_nonce(token_id);
 
         let minted_tokens_count = U256::from(token_ids.len() as u64);
         let new_total_supply = data::total_supply() + minted_tokens_count;
@@ -117,17 +120,18 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
     fn mint_copies(
         &mut self,
         recipient: Key,
+        token_ids: Vec<TokenId>,
         token_meta: Meta,
         count: u32,
     ) -> Result<Vec<TokenId>, Error> {
         let token_metas = vec![token_meta; count as usize];
-        self.mint(recipient, token_metas)
+        self.mint(recipient, token_ids, token_metas)
     }
 
     fn burn(&mut self, owner: Key, token_ids: Vec<TokenId>) -> Result<(), Error> {
         let spender = self.get_caller();
         for token_id in &token_ids {
-            if spender != owner && !self.is_approved(owner, token_id.clone(), spender) {
+            if spender != owner && !self.is_approved(owner, *token_id, spender) {
                 return Err(Error::PermissionDenied);
             }
         }
@@ -154,7 +158,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         }
 
         for token_id in &token_ids {
-            owned_tokens_dict.remove_token(&owner, token_id.clone());
+            owned_tokens_dict.remove_token(&owner, token_id);
             metadata_dict.remove(token_id);
             owners_dict.remove(token_id);
             allowances_dict.remove(&owner, token_id);
@@ -171,7 +175,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
     fn approve(&mut self, spender: Key, token_ids: Vec<TokenId>) -> Result<(), Error> {
         let caller = self.get_caller();
         for token_id in &token_ids {
-            let owner = self.owner_of(token_id.clone());
+            let owner = self.owner_of(*token_id);
             if owner.is_none() {
                 return Err(Error::WrongArguments);
             }
@@ -207,7 +211,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
 
         if owner != spender {
             for token_id in &token_ids {
-                if !self.is_approved(owner, token_id.clone(), spender) {
+                if !self.is_approved(owner, *token_id, spender) {
                     return Err(Error::PermissionDenied);
                 }
                 allowances_dict.remove(&owner, token_id);
@@ -239,8 +243,8 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         }
 
         for token_id in &token_ids {
-            owned_tokens_dict.remove_token(&owner, token_id.clone());
-            owned_tokens_dict.set_token(&recipient, token_id.clone());
+            owned_tokens_dict.remove_token(&owner, token_id);
+            owned_tokens_dict.set_token(&recipient, token_id);
             owners_dict.set(token_id, recipient);
         }
 

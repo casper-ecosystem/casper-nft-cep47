@@ -7,7 +7,7 @@ use blake2::{
 use casper_types::{bytesrepr::ToBytes, runtime_args, CLTyped, Key, RuntimeArgs, U256};
 use test_env::{Sender, TestContract, TestEnv};
 
-pub type TokenId = String;
+pub type TokenId = U256;
 pub type Meta = BTreeMap<String, String>;
 
 pub struct CEP47Instance(TestContract);
@@ -45,12 +45,19 @@ impl CEP47Instance {
         );
     }
 
-    pub fn mint_one<T: Into<Key>>(&self, sender: Sender, recipient: T, token_meta: Meta) {
+    pub fn mint_one<T: Into<Key>>(
+        &self,
+        sender: Sender,
+        recipient: T,
+        token_id: TokenId,
+        token_meta: Meta,
+    ) {
         self.0.call_contract(
             sender,
             "mint",
             runtime_args! {
                 "recipient" => recipient.into(),
+                "token_ids" => vec![token_id],
                 "token_metas" => vec![token_meta]
             },
         )
@@ -60,6 +67,7 @@ impl CEP47Instance {
         &self,
         sender: Sender,
         recipient: T,
+        token_ids: Vec<TokenId>,
         token_meta: Meta,
         count: u32,
     ) {
@@ -68,18 +76,26 @@ impl CEP47Instance {
             "mint_copies",
             runtime_args! {
                 "recipient" => recipient.into(),
+                "token_ids" => token_ids,
                 "token_meta" => token_meta,
                 "count" => count
             },
         )
     }
 
-    pub fn mint_many<T: Into<Key>>(&self, sender: Sender, recipient: T, token_metas: Vec<Meta>) {
+    pub fn mint_many<T: Into<Key>>(
+        &self,
+        sender: Sender,
+        recipient: T,
+        token_ids: Vec<TokenId>,
+        token_metas: Vec<Meta>,
+    ) {
         self.0.call_contract(
             sender,
             "mint",
             runtime_args! {
                 "recipient" => recipient.into(),
+                "token_ids" => token_ids,
                 "token_metas" => token_metas
             },
         )
@@ -147,7 +163,7 @@ impl CEP47Instance {
     pub fn get_approved<T: Into<Key>>(&self, owner: T, token_id: TokenId) -> Option<Key> {
         self.0.query_dictionary(
             "allowances",
-            key_and_value_to_str::<TokenId>(&owner.into(), &token_id),
+            key_and_value_to_str::<String>(&owner.into(), &token_id.to_string()),
         )
     }
 
@@ -176,11 +192,11 @@ impl CEP47Instance {
     }
 
     pub fn owner_of(&self, token_id: TokenId) -> Option<Key> {
-        self.0.query_dictionary("owners", token_id)
+        self.0.query_dictionary("owners", token_id.to_string())
     }
 
     pub fn token_meta(&self, token_id: TokenId) -> Option<Meta> {
-        self.0.query_dictionary("metadata", token_id)
+        self.0.query_dictionary("metadata", token_id.to_string())
     }
 
     pub fn name(&self) -> String {

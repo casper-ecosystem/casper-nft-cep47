@@ -21,7 +21,6 @@ pub const NAME: &str = "name";
 pub const META: &str = "meta";
 pub const SYMBOL: &str = "symbol";
 pub const TOTAL_SUPPLY: &str = "total_supply";
-pub const NONCE: &str = "nonce";
 
 pub struct Owners {
     dict: Dict,
@@ -38,16 +37,16 @@ impl Owners {
         Dict::init(OWNERS_DICT)
     }
 
-    pub fn get(&self, key: &str) -> Option<Key> {
-        self.dict.get(key)
+    pub fn get(&self, key: &TokenId) -> Option<Key> {
+        self.dict.get(&key.to_string())
     }
 
-    pub fn set(&self, key: &str, value: Key) {
-        self.dict.set(key, value);
+    pub fn set(&self, key: &TokenId, value: Key) {
+        self.dict.set(&key.to_string(), value);
     }
 
-    pub fn remove(&self, key: &str) {
-        self.dict.remove::<Key>(key);
+    pub fn remove(&self, key: &TokenId) {
+        self.dict.remove::<Key>(&key.to_string());
     }
 }
 
@@ -66,16 +65,16 @@ impl Metadata {
         Dict::init(METADATA_DICT)
     }
 
-    pub fn get(&self, key: &str) -> Option<Meta> {
-        self.dict.get(key)
+    pub fn get(&self, key: &TokenId) -> Option<Meta> {
+        self.dict.get(&key.to_string())
     }
 
-    pub fn set(&self, key: &str, value: Meta) {
-        self.dict.set(key, value);
+    pub fn set(&self, key: &TokenId, value: Meta) {
+        self.dict.set(&key.to_string(), value);
     }
 
-    pub fn remove(&self, key: &str) {
-        self.dict.remove::<Meta>(key);
+    pub fn remove(&self, key: &TokenId) {
+        self.dict.remove::<Meta>(&key.to_string());
     }
 }
 
@@ -104,9 +103,8 @@ impl OwnedTokens {
         self.tokens_dict.get(&key_and_value_to_str(owner, index))
     }
 
-    pub fn get_index_by_token(&self, owner: &Key, value: &str) -> Option<U256> {
-        self.indexes_dict
-            .get(&key_and_value_to_str(owner, &value.to_string()))
+    pub fn get_index_by_token(&self, owner: &Key, value: &TokenId) -> Option<U256> {
+        self.indexes_dict.get(&key_and_value_to_str(owner, value))
     }
 
     pub fn get_balances(&self, owner: &Key) -> U256 {
@@ -119,18 +117,18 @@ impl OwnedTokens {
         self.balances_dict.set(&key_to_str(owner), value);
     }
 
-    pub fn set_token(&self, owner: &Key, value: TokenId) {
+    pub fn set_token(&self, owner: &Key, value: &TokenId) {
         let length = self.get_balances(owner);
         self.indexes_dict
-            .set(&key_and_value_to_str(owner, &value), length);
+            .set(&key_and_value_to_str(owner, value), length);
         self.tokens_dict
-            .set(&key_and_value_to_str(owner, &length), value);
+            .set(&key_and_value_to_str(owner, &length), *value);
         self.set_balances(owner, length + 1);
     }
 
-    pub fn remove_token(&self, owner: &Key, value: TokenId) {
+    pub fn remove_token(&self, owner: &Key, value: &TokenId) {
         let length = self.get_balances(owner);
-        let index = self.get_index_by_token(owner, &value).unwrap_or_revert();
+        let index = self.get_index_by_token(owner, value).unwrap_or_revert();
         match length.cmp(&(index + 1)) {
             core::cmp::Ordering::Equal => {
                 self.tokens_dict
@@ -140,7 +138,7 @@ impl OwnedTokens {
             core::cmp::Ordering::Greater => {
                 let last = self.get_token_by_index(owner, &(length - 1));
                 self.indexes_dict.set(
-                    &key_and_value_to_str(owner, &last.clone().unwrap_or_revert()),
+                    &key_and_value_to_str(owner, &last.unwrap_or_revert()),
                     index,
                 );
                 self.tokens_dict.set(
@@ -154,7 +152,7 @@ impl OwnedTokens {
             core::cmp::Ordering::Less => {}
         }
         self.indexes_dict
-            .remove::<U256>(&key_and_value_to_str(owner, &value));
+            .remove::<U256>(&key_and_value_to_str(owner, value));
     }
 }
 
@@ -173,21 +171,25 @@ impl Allowances {
         Dict::init(ALLOWANCES_DICT)
     }
 
-    pub fn get(&self, owner: &Key, token_id: &str) -> Option<Key> {
-        self.dict
-            .get(key_and_value_to_str::<TokenId>(owner, &token_id.to_string()).as_str())
+    pub fn get(&self, owner: &Key, token_id: &TokenId) -> Option<Key> {
+        self.dict.get(&key_and_value_to_str::<String>(
+            owner,
+            &token_id.to_string(),
+        ))
     }
 
-    pub fn set(&self, owner: &Key, token_id: &str, value: Key) {
+    pub fn set(&self, owner: &Key, token_id: &TokenId, value: Key) {
         self.dict.set(
-            key_and_value_to_str::<TokenId>(owner, &token_id.to_string()).as_str(),
+            &key_and_value_to_str::<String>(owner, &token_id.to_string()),
             value,
         );
     }
 
-    pub fn remove(&self, owner: &Key, token_id: &str) {
-        self.dict
-            .remove::<Key>(key_and_value_to_str::<TokenId>(owner, &token_id.to_string()).as_str());
+    pub fn remove(&self, owner: &Key, token_id: &TokenId) {
+        self.dict.remove::<Key>(&key_and_value_to_str::<String>(
+            owner,
+            &token_id.to_string(),
+        ));
     }
 }
 
@@ -221,14 +223,6 @@ pub fn total_supply() -> U256 {
 
 pub fn set_total_supply(total_supply: U256) {
     set_key(TOTAL_SUPPLY, total_supply);
-}
-
-pub fn nonce() -> U256 {
-    get_key(NONCE).unwrap_or_default()
-}
-
-pub fn set_nonce(nonce: U256) {
-    set_key(NONCE, nonce);
 }
 
 pub fn contract_package_hash() -> ContractPackageHash {

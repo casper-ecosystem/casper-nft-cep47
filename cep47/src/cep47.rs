@@ -96,6 +96,12 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
             return Err(Error::WrongArguments);
         };
 
+        for token_id in &token_ids {
+            if None == self.owner_of(*token_id) {
+                return Err(Error::TokenIdAlreadyExists);
+            }
+        }
+
         let owners_dict = Owners::instance();
         let owned_tokens_dict = OwnedTokens::instance();
         let metadata_dict = Metadata::instance();

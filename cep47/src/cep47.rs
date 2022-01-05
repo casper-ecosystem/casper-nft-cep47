@@ -1,12 +1,14 @@
+use core::convert::TryInto;
+
 use crate::{
-    data::{self, Allowances, Metadata, OwnedTokens, Owners},
+    data::{self, Allowances, Metadata, OwnedTokens, Owners, CONTRACT_PACKAGE_HASH, contract_package_hash},
     event::CEP47Event,
     Meta, TokenId,
 };
-use alloc::{string::String, vec::Vec};
-use casper_contract::{contract_api::runtime, unwrap_or_revert::UnwrapOrRevert};
-use casper_types::{bytesrepr::ToBytes, ApiError, Key, U256};
-use contract_utils::{ContractContext, ContractStorage};
+use alloc::{string::{String, ToString}, vec::Vec, collections::BTreeMap};
+use casper_contract::{contract_api::{runtime::{self, revert}, storage}, unwrap_or_revert::UnwrapOrRevert};
+use casper_types::{bytesrepr::ToBytes, ApiError, Key, U256, URef, ContractPackageHash};
+use contract_utils::{ContractContext, ContractStorage, get_key};
 
 #[repr(u16)]
 pub enum Error {
@@ -221,11 +223,110 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
             }
             Allowances::instance().set(&caller, token_id, spender);
         }
-        self.emit(CEP47Event::Approve {
-            owner: caller,
-            spender,
-            token_ids,
-        });
+
+        // revert(ApiError::User(662)); // i see this so its past this
+        {
+            let event = CEP47Event::Approve {
+                owner: caller,
+                spender,
+                token_ids,
+            };
+            // revert(ApiError::User(664)); // after this
+            {
+                let event = &event;
+                let mut events = Vec::new();
+                // revert(ApiError::User(667)); //after this
+                let package : ContractPackageHash = {
+                    // revert(ApiError::User(670)); //after this
+                    let ret = match runtime::get_key(CONTRACT_PACKAGE_HASH) {
+                            None => None,
+                            Some(value) => {
+                                let key = value.into_uref().unwrap_or_revert();
+                                // revert(ApiError::User(671));
+                                let read_value = storage::read(key).unwrap_or_revert(); // this line fails for approve but not for mint
+                                revert(ApiError::User(673));
+                                let end_value = read_value.unwrap_or_revert();
+                                revert(ApiError::User(672));
+                                Some(end_value)
+                            }
+                        }.unwrap_or_revert_with(ApiError::User(800));
+                    revert(ApiError::User(669)); //before this
+                    ret
+                };
+                revert(ApiError::User(666)); //before this
+                match event {
+                    CEP47Event::Mint {
+                        recipient,
+                        token_ids,
+                    } => {
+                        for token_id in token_ids {
+                            let mut param = BTreeMap::new();
+                            param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+                            param.insert("event_type", "cep47_mint_one".to_string());
+                            param.insert("recipient", recipient.to_string());
+                            param.insert("token_id", token_id.to_string());
+                            events.push(param);
+                        }
+                    }
+                    CEP47Event::Burn { owner, token_ids } => {
+                        for token_id in token_ids {
+                            let mut param = BTreeMap::new();
+                            param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+                            param.insert("event_type", "cep47_burn_one".to_string());
+                            param.insert("owner", owner.to_string());
+                            param.insert("token_id", token_id.to_string());
+                            events.push(param);
+                        }
+                    }
+                    CEP47Event::Approve {
+                        owner,
+                        spender,
+                        token_ids,
+                    } => {
+                        for token_id in token_ids {
+                            let mut param = BTreeMap::new();
+                            param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+                            param.insert("event_type", "cep47_approve_token".to_string());
+                            param.insert("owner", owner.to_string());
+                            param.insert("spender", spender.to_string());
+                            param.insert("token_id", token_id.to_string());
+                            events.push(param);
+                        }
+                    }
+                    CEP47Event::Transfer {
+                        sender,
+                        recipient,
+                        token_ids,
+                    } => {
+                        for token_id in token_ids {
+                            let mut param = BTreeMap::new();
+                            param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+                            param.insert("event_type", "cep47_transfer_token".to_string());
+                            param.insert("sender", sender.to_string());
+                            param.insert("recipient", recipient.to_string());
+                            param.insert("token_id", token_id.to_string());
+                            events.push(param);
+                        }
+                    }
+                    CEP47Event::MetadataUpdate { token_id } => {
+                        let mut param = BTreeMap::new();
+                        param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+                        param.insert("event_type", "cep47_metadata_update".to_string());
+                        param.insert("token_id", token_id.to_string());
+                        events.push(param);
+                    }
+                };
+
+                for param in events {
+                    let _: URef = storage::new_uref(param);
+                }
+                revert(ApiError::User(665)); //how is it after this?????
+            };
+
+            revert(ApiError::User(663)); // it is also before this????
+        };
+
+        revert(ApiError::User(661)); // i cannot see this so its before this
         Ok(())
     }
 
@@ -305,5 +406,7 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
 
     fn emit(&mut self, event: CEP47Event) {
         data::emit(&event);
+
+        // revert(ApiError::User(663)); // I can see this so it's after this... why does it reach this????
     }
 }

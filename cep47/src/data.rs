@@ -3,8 +3,8 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use casper_contract::{contract_api::storage, unwrap_or_revert::UnwrapOrRevert};
-use casper_types::{ContractPackageHash, Key, URef, U256};
+use casper_contract::{contract_api::{storage, runtime::revert}, unwrap_or_revert::UnwrapOrRevert};
+use casper_types::{ContractPackageHash, Key, URef, U256, ApiError};
 use contract_utils::{get_key, key_and_value_to_str, key_to_str, set_key, Dict};
 
 use crate::{event::CEP47Event, Meta, TokenId};
@@ -15,7 +15,7 @@ const METADATA_DICT: &str = "metadata";
 const OWNERS_DICT: &str = "owners";
 const OWNED_TOKENS_BY_INDEX_DICT: &str = "owned_tokens_by_index";
 const OWNED_INDEXES_BY_TOKEN_DICT: &str = "owned_indexes_by_token";
-const CONTRACT_PACKAGE_HASH: &str = "contract_package_hash";
+pub const CONTRACT_PACKAGE_HASH: &str = "contract_package_hash";
 
 pub const NAME: &str = "name";
 pub const META: &str = "meta";
@@ -232,12 +232,15 @@ pub fn set_nonce(nonce: u32) {
 }
 
 pub fn contract_package_hash() -> ContractPackageHash {
-    get_key(CONTRACT_PACKAGE_HASH).unwrap_or_revert()
+    let ret = get_key(CONTRACT_PACKAGE_HASH).unwrap_or_revert_with(ApiError::User(800));
+    // revert(ApiError::User(669));
+    ret
 }
 
 pub fn emit(event: &CEP47Event) {
     let mut events = Vec::new();
     let package = contract_package_hash();
+
     match event {
         CEP47Event::Mint {
             recipient,
@@ -300,7 +303,9 @@ pub fn emit(event: &CEP47Event) {
             events.push(param);
         }
     };
+
     for param in events {
         let _: URef = storage::new_uref(param);
     }
+    // revert(ApiError::User(665)); //how is it after this?????
 }

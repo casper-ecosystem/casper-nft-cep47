@@ -95,9 +95,9 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "casper-contract"
-version = "1.4.1"
+version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d268cab5c7ec026f596abbb3bde5afa72e4dbca5d870f0e8f55fd456dc39239d"
+checksum = "e4e145bb5b2cde2f0c76b8571a03ef8a6de37616ef0e6e4b8a9bac937ff39c40"
 dependencies = [
  "casper-types",
  "hex_fmt",
@@ -106,11 +106,10 @@ dependencies = [
 
 [[package]]
 name = "casper-engine-test-support"
-version = "1.4.1"
+version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e52f2b4a1c979eb65abc87d284fb8f09dd764201c051246464da90a53037948c"
+checksum = "13aeaa9950a9d0e778d0a94de98a323337b54e6c03bdeeafe44af19ea6005240"
 dependencies = [
- "casper-contract",
  "casper-execution-engine",
  "casper-hashing",
  "casper-types",
@@ -124,9 +123,9 @@ dependencies = [
 
 [[package]]
 name = "casper-execution-engine"
-version = "1.4.1"
+version = "1.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f71e7d10ca7cdec6a150cb9e2c87c0dcda757fd067fbee1e345bda7eceae540"
+checksum = "dddee9d2f4e3dacdb7c69887cfe0ae1d2ffa6fa8af340d5d0ed4243ab21fbd24"
 dependencies = [
  "anyhow",
  "base16",
@@ -135,7 +134,6 @@ dependencies = [
  "casper-types",
  "chrono",
  "datasize",
- "hex",
  "hex-buffer-serde 0.2.2",
  "hex_fmt",
  "hostname",
@@ -167,9 +165,9 @@ dependencies = [
 
 [[package]]
 name = "casper-hashing"
-version = "1.4.1"
+version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5001fe4a9ca2fbebf62152ed1227cca215be1d912fef526a3fcaa9a21f9d7498"
+checksum = "5af18f77cbabac69777333e0551accf1cd403995706953d4dabc56d7b56667a8"
 dependencies = [
  "base16",
  "blake2",
@@ -180,13 +178,14 @@ dependencies = [
  "itertools",
  "schemars",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
 name = "casper-types"
-version = "1.4.1"
+version = "1.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12b42e0c175b4c593a4c10db210a0a95fe2a7ddcb99a8e82c97d7d45c08e01ed"
+checksum = "e9da1776d44d053d9b60040b7e70b448ce34608762e989cc1106d083125bf200"
 dependencies = [
  "base16",
  "base64",
@@ -235,7 +234,7 @@ dependencies = [
  "blake2",
  "casper-contract",
  "casper-engine-test-support",
- "casper-hashing",
+ "casper-execution-engine",
  "casper-types",
  "contract-utils",
  "hex",
@@ -1149,7 +1148,7 @@ version = "0.1.0"
 dependencies = [
  "casper-contract",
  "casper-engine-test-support",
- "casper-hashing",
+ "casper-execution-engine",
  "casper-types",
 ]
 

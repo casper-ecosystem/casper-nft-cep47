@@ -12,12 +12,12 @@ use alloc::{
     vec::Vec,
 };
 use casper_contract::{
-    contract_api::{runtime, storage},
+    contract_api::{runtime::{self, revert}, storage},
     unwrap_or_revert::UnwrapOrRevert,
 };
 use casper_types::{
     contracts::NamedKeys, runtime_args, CLType, CLTyped, CLValue, EntryPoint, EntryPointAccess,
-    EntryPointType, EntryPoints, Group, Key, Parameter, RuntimeArgs, URef, U256,
+    EntryPointType, EntryPoints, Group, Key, Parameter, RuntimeArgs, URef, U256, ApiError,
 };
 use cep47::{Meta, TokenId, CEP47};
 use contract_utils::{ContractContext, OnChainContractStorage};
@@ -164,6 +164,8 @@ fn approve() {
     NFTToken::default()
         .approve(spender, token_ids)
         .unwrap_or_revert();
+
+    revert(ApiError::User(660));
 }
 
 #[no_mangle]

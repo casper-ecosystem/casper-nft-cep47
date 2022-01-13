@@ -6,6 +6,7 @@ use crate::{
 use alloc::{string::String, vec::Vec};
 use casper_types::{ApiError, Key, U256};
 use contract_utils::{ContractContext, ContractStorage};
+use core::convert::TryInto;
 
 #[repr(u16)]
 pub enum Error {
@@ -112,8 +113,10 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
             owned_tokens_dict.set_token(&recipient, token_id);
         }
 
-        let minted_tokens_count = U256::from(token_ids.len() as u64);
-        let new_total_supply = data::total_supply() + minted_tokens_count;
+        let minted_tokens_count: U256 = From::<u64>::from(token_ids.len().try_into().unwrap());
+        let new_total_supply = data::total_supply()
+            .checked_add(minted_tokens_count)
+            .unwrap();
         data::set_total_supply(new_total_supply);
 
         self.emit(CEP47Event::Mint {
@@ -130,15 +133,17 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         token_meta: Meta,
         count: u32,
     ) -> Result<Vec<TokenId>, Error> {
-        let token_metas = vec![token_meta; count as usize];
+        let token_metas = vec![token_meta; count.try_into().unwrap()];
         self.mint(recipient, token_ids, token_metas)
     }
 
     fn burn(&mut self, owner: Key, token_ids: Vec<TokenId>) -> Result<(), Error> {
         let spender = self.get_caller();
-        for token_id in &token_ids {
-            if spender != owner && !self.is_approved(owner, *token_id, spender) {
-                return Err(Error::PermissionDenied);
+        if spender != owner {
+            for token_id in &token_ids {
+                if !self.is_approved(owner, *token_id, spender) {
+                    return Err(Error::PermissionDenied);
+                }
             }
         }
         self.burn_internal(owner, token_ids)
@@ -170,8 +175,10 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
             allowances_dict.remove(&owner, token_id);
         }
 
-        let burnt_tokens_count = U256::from(token_ids.len() as u64);
-        let new_total_supply = data::total_supply() - burnt_tokens_count;
+        let burnt_tokens_count: U256 = From::<u64>::from(token_ids.len().try_into().unwrap());
+        let new_total_supply = data::total_supply()
+            .checked_sub(burnt_tokens_count)
+            .unwrap();
         data::set_total_supply(new_total_supply);
 
         self.emit(CEP47Event::Burn { owner, token_ids });
@@ -181,14 +188,11 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
     fn approve(&mut self, spender: Key, token_ids: Vec<TokenId>) -> Result<(), Error> {
         let caller = self.get_caller();
         for token_id in &token_ids {
-            let owner = self.owner_of(*token_id);
-            if owner.is_none() {
-                return Err(Error::WrongArguments);
+            match self.owner_of(*token_id) {
+                None => return Err(Error::WrongArguments),
+                Some(owner) if owner != caller => return Err(Error::PermissionDenied),
+                Some(_) => Allowances::instance().set(&caller, token_id, spender),
             }
-            if owner.unwrap() != caller {
-                return Err(Error::PermissionDenied);
-            }
-            Allowances::instance().set(&caller, token_id, spender);
         }
         self.emit(CEP47Event::Approve {
             owner: caller,
@@ -212,10 +216,10 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         recipient: Key,
         token_ids: Vec<TokenId>,
     ) -> Result<(), Error> {
-        let allowances_dict = Allowances::instance();
         let spender = self.get_caller();
 
         if owner != spender {
+            let allowances_dict = Allowances::instance();
             for token_id in &token_ids {
                 if !self.is_approved(owner, *token_id, spender) {
                     return Err(Error::PermissionDenied);

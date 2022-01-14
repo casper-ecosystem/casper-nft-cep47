@@ -3,8 +3,11 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use casper_contract::{contract_api::storage, unwrap_or_revert::UnwrapOrRevert};
-use casper_types::{ContractPackageHash, Key, URef, U256};
+use casper_contract::{
+    contract_api::{runtime::get_call_stack, storage},
+    unwrap_or_revert::UnwrapOrRevert,
+};
+use casper_types::{system::CallStackElement, ContractPackageHash, Key, URef, U256};
 use contract_utils::{get_key, key_and_value_to_str, key_to_str, set_key, Dict};
 
 use crate::{event::CEP47Event, Meta, TokenId};
@@ -226,7 +229,16 @@ pub fn set_total_supply(total_supply: U256) {
 }
 
 pub fn contract_package_hash() -> ContractPackageHash {
-    get_key(CONTRACT_PACKAGE_HASH).unwrap_or_revert()
+    let call_stacks = get_call_stack();
+    let last_entry = call_stacks.last().unwrap_or_revert();
+    let package_hash: Option<ContractPackageHash> = match last_entry {
+        CallStackElement::StoredContract {
+            contract_package_hash,
+            contract_hash: _,
+        } => Some(*contract_package_hash),
+        _ => None,
+    };
+    package_hash.unwrap_or_revert()
 }
 
 pub fn emit(event: &CEP47Event) {

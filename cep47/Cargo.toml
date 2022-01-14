@@ -5,9 +5,9 @@ authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+casper-contract = "1.4.3"
+casper-types = "1.4.4"
 hex = { version = "0.4.3", default-features = false }
-casper-contract = "=1.4.1"
-casper-types = "=1.4.1"
 contract-utils = { path = "../utils/contract-utils" }
 
 [[bin]]

@@ -1,5 +1,5 @@
 #[cfg(test)]
-pub mod cep47;
+pub mod cep47_tests;
 
 #[cfg(test)]
-pub mod contract_tests;
+pub mod cep47_instance;

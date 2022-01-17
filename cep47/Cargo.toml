@@ -5,30 +5,14 @@ authors = ["astro019 <dmitry.yakov7@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-hex = "0.4.3"
-casper-contract = "1.3.1"
-casper-types = "1.3.1"
-cep47-logic = { path = "../cep47-logic" }
+hex = { version = "0.4.3", default-features = false }
+casper-contract = "1.4.3"
+casper-types = "1.4.4"
+contract-utils = { path = "../utils/contract-utils" }
 
-[lib]
-name = "cep47"
-
-[features]
-default = ["casper-contract/std", "casper-types/std"]
-no_name = []
-no_symbol = []
-no_meta = []
-no_balance_of = []
-no_owner_of = []
-no_total_supply = []
-no_is_paused = []
-no_pause = []
-no_unpause = []
-no_mint_one = []
-no_mint_many = []
-no_mint_copies = []
-no_burn_many = []
-no_burn_one = []
-no_transfer_token = []
-no_transfer_many_tokens = []
-no_update_token_metadata = []
+[[bin]]
+name = "cep47-token"
+path = "bin/cep47_token.rs"
+bench = false
+doctest = false
+test = false

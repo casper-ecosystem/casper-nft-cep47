@@ -1,7 +1,10 @@
-use casper_engine_test_support::{AccountHash, Code, Hash, Value};
-use casper_types::{bytesrepr::FromBytes, CLTyped, RuntimeArgs};
+use std::path::PathBuf;
 
-use crate::{Sender, TestEnv};
+use casper_types::{
+    account::AccountHash, bytesrepr::FromBytes, CLTyped, ContractHash, RuntimeArgs,
+};
+
+use crate::{utils::DeploySource, TestEnv};
 
 pub struct TestContract {
     env: TestEnv,
@@ -14,18 +17,17 @@ impl TestContract {
         env: &TestEnv,
         wasm: &str,
         name: &str,
-        sender: Sender,
+        sender: AccountHash,
         mut args: RuntimeArgs,
     ) -> TestContract {
-        let Sender(contract_owner) = sender;
-        let session_code = Code::from(wasm);
+        let session_code = PathBuf::from(wasm);
         args.insert("contract_name", name).unwrap();
-        env.run(sender, session_code, args);
+        env.run(sender, DeploySource::Code(session_code), args);
 
         TestContract {
             env: env.clone(),
             name: String::from(name),
-            contract_owner,
+            contract_owner: sender,
         }
     }
 
@@ -42,20 +44,19 @@ impl TestContract {
         let contract_name = format!("{}_contract_hash", self.name);
         self.env
             .query_account_named_key(self.contract_owner, &[contract_name, key])
-            .into_t()
-            .unwrap()
     }
 
-    pub fn contract_hash(&self) -> Hash {
+    pub fn contract_hash(&self) -> [u8; 32] {
         let key = format!("{}_contract_hash_wrapped", self.name);
-        let value: Value = self
-            .env
-            .query_account_named_key(self.contract_owner, &[key]);
-        value.into_t().unwrap()
+        self.env
+            .query_account_named_key(self.contract_owner, &[key])
     }
 
-    pub fn call_contract(&self, sender: Sender, entry_point: &str, session_args: RuntimeArgs) {
-        let session_code = Code::Hash(self.contract_hash(), String::from(entry_point));
+    pub fn call_contract(&self, sender: AccountHash, entry_point: &str, session_args: RuntimeArgs) {
+        let session_code = DeploySource::ByHash {
+            hash: ContractHash::new(self.contract_hash()),
+            method: entry_point.to_string(),
+        };
         self.env.run(sender, session_code, session_args);
     }
 }

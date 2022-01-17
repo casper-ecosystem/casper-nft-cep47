@@ -4,8 +4,10 @@ use blake2::{
     digest::{Update, VariableOutput},
     VarBlake2b,
 };
-use casper_types::{bytesrepr::ToBytes, runtime_args, CLTyped, Key, RuntimeArgs, U256};
-use test_env::{Sender, TestContract, TestEnv};
+use casper_types::{
+    account::AccountHash, bytesrepr::ToBytes, runtime_args, CLTyped, Key, RuntimeArgs, U256,
+};
+use test_env::{TestContract, TestEnv};
 
 pub type TokenId = U256;
 pub type Meta = BTreeMap<String, String>;
@@ -16,7 +18,7 @@ impl CEP47Instance {
     pub fn new(
         env: &TestEnv,
         contract_name: &str,
-        sender: Sender,
+        sender: AccountHash,
         name: &str,
         symbol: &str,
         meta: Meta,
@@ -34,7 +36,7 @@ impl CEP47Instance {
         ))
     }
 
-    pub fn constructor(&self, sender: Sender, name: &str, symbol: &str, meta: Meta) {
+    pub fn constructor(&self, sender: AccountHash, name: &str, symbol: &str, meta: Meta) {
         self.0.call_contract(
             sender,
             "constructor",
@@ -47,7 +49,7 @@ impl CEP47Instance {
 
     pub fn mint_one<T: Into<Key>>(
         &self,
-        sender: Sender,
+        sender: AccountHash,
         recipient: T,
         token_id: TokenId,
         token_meta: Meta,
@@ -65,7 +67,7 @@ impl CEP47Instance {
 
     pub fn mint_copies<T: Into<Key>>(
         &self,
-        sender: Sender,
+        sender: AccountHash,
         recipient: T,
         token_ids: Vec<TokenId>,
         token_meta: Meta,
@@ -85,7 +87,7 @@ impl CEP47Instance {
 
     pub fn mint_many<T: Into<Key>>(
         &self,
-        sender: Sender,
+        sender: AccountHash,
         recipient: T,
         token_ids: Vec<TokenId>,
         token_metas: Vec<Meta>,
@@ -101,7 +103,7 @@ impl CEP47Instance {
         )
     }
 
-    pub fn burn_one<T: Into<Key>>(&self, sender: Sender, owner: T, token_id: TokenId) {
+    pub fn burn_one<T: Into<Key>>(&self, sender: AccountHash, owner: T, token_id: TokenId) {
         self.0.call_contract(
             sender,
             "burn",
@@ -112,7 +114,7 @@ impl CEP47Instance {
         )
     }
 
-    pub fn burn_many<T: Into<Key>>(&self, sender: Sender, owner: T, token_ids: Vec<TokenId>) {
+    pub fn burn_many<T: Into<Key>>(&self, sender: AccountHash, owner: T, token_ids: Vec<TokenId>) {
         self.0.call_contract(
             sender,
             "burn",
@@ -123,7 +125,12 @@ impl CEP47Instance {
         )
     }
 
-    pub fn transfer<T: Into<Key>>(&self, sender: Sender, recipient: T, token_ids: Vec<TokenId>) {
+    pub fn transfer<T: Into<Key>>(
+        &self,
+        sender: AccountHash,
+        recipient: T,
+        token_ids: Vec<TokenId>,
+    ) {
         self.0.call_contract(
             sender,
             "transfer",
@@ -136,7 +143,7 @@ impl CEP47Instance {
 
     pub fn transfer_from<T: Into<Key>>(
         &self,
-        sender: Sender,
+        sender: AccountHash,
         owner: T,
         recipient: T,
         token_ids: Vec<TokenId>,
@@ -152,7 +159,7 @@ impl CEP47Instance {
         )
     }
 
-    pub fn approve<T: Into<Key>>(&self, sender: Sender, spender: T, token_ids: Vec<TokenId>) {
+    pub fn approve<T: Into<Key>>(&self, sender: AccountHash, spender: T, token_ids: Vec<TokenId>) {
         self.0.call_contract(
             sender,
             "approve",
@@ -167,7 +174,7 @@ impl CEP47Instance {
         )
     }
 
-    pub fn update_token_meta(&self, sender: Sender, token_id: TokenId, token_meta: Meta) {
+    pub fn update_token_meta(&self, sender: AccountHash, token_id: TokenId, token_meta: Meta) {
         self.0.call_contract(
             sender,
             "update_token_meta",

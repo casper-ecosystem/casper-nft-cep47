@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use casper_engine_test_support::{
-    AccountHash, Code, Hash, SessionBuilder, TestContext, TestContextBuilder, Value,
+use casper_engine_test_support::{InMemoryWasmTestBuilder, DEFAULT_RUN_GENESIS_REQUEST};
+use casper_types::{
+    account::AccountHash, bytesrepr::FromBytes, CLTyped, Key, PublicKey, RuntimeArgs, SecretKey,
 };
-use casper_types::{bytesrepr::FromBytes, CLTyped, Key, PublicKey, RuntimeArgs, SecretKey, U512};
 
-use crate::Sender;
+use crate::utils::{deploy, fund_account, query, query_dictionary_item, DeploySource};
 
 #[derive(Clone)]
 pub struct TestEnv {
@@ -19,11 +19,15 @@ impl TestEnv {
         }
     }
 
-    pub fn run(&self, sender: Sender, session_code: Code, session_args: RuntimeArgs) {
-        self.state
-            .lock()
-            .unwrap()
-            .run(sender, session_code, session_args);
+    pub fn run(&self, sender: AccountHash, session_code: DeploySource, session_args: RuntimeArgs) {
+        deploy(
+            &mut self.state.lock().unwrap().builder,
+            &sender,
+            &session_code,
+            session_args,
+            true,
+            None,
+        )
     }
 
     pub fn next_user(&self) -> AccountHash {
@@ -32,17 +36,21 @@ impl TestEnv {
 
     pub fn query_dictionary<T: CLTyped + FromBytes>(
         &self,
-        contract_hash: Hash,
+        contract_hash: [u8; 32],
         dict_name: &str,
         key: String,
     ) -> Option<T> {
         self.state
             .lock()
             .unwrap()
-            .query_dictionary(contract_hash, dict_name, key)
+            .query_dictionary(contract_hash, dict_name.to_string(), key)
     }
 
-    pub fn query_account_named_key(&self, account: AccountHash, path: &[String]) -> Value {
+    pub fn query_account_named_key<T: CLTyped + FromBytes>(
+        &self,
+        account: AccountHash,
+        path: &[String],
+    ) -> T {
         self.state
             .lock()
             .unwrap()
@@ -57,64 +65,98 @@ impl Default for TestEnv {
 }
 
 struct TestEnvState {
-    context: TestContext,
+    builder: InMemoryWasmTestBuilder,
     accounts: Vec<AccountHash>,
 }
 
 impl TestEnvState {
     pub fn new() -> TestEnvState {
-        let mut context_builder = TestContextBuilder::new();
-
+        let mut builder = InMemoryWasmTestBuilder::default();
+        builder.run_genesis(&DEFAULT_RUN_GENESIS_REQUEST).commit();
         let mut accounts = Vec::new();
         for i in 0..10u8 {
             let secret_key: SecretKey = SecretKey::ed25519_from_bytes([i; 32]).unwrap();
             let public_key: PublicKey = (&secret_key).into();
-            accounts.push(AccountHash::from(&public_key));
-            context_builder =
-                context_builder.with_public_key(public_key, U512::from(500_000_000_000_000u64));
+            let account_hash = AccountHash::from(&public_key);
+            accounts.push(account_hash);
+            builder
+                .exec(fund_account(&account_hash))
+                .expect_success()
+                .commit();
         }
 
-        TestEnvState {
-            context: context_builder.build(),
-            accounts,
+        TestEnvState { builder, accounts }
+    }
+
+    pub fn _new_with_users(user_secrets: &[[u8; 32]]) -> TestEnvState {
+        let mut builder = InMemoryWasmTestBuilder::default();
+        builder.run_genesis(&DEFAULT_RUN_GENESIS_REQUEST).commit();
+
+        let mut accounts = Vec::new();
+        for user_secret in user_secrets {
+            let secret_key: SecretKey = SecretKey::ed25519_from_bytes(user_secret).unwrap();
+            let public_key: PublicKey = (&secret_key).into();
+            let account_hash = AccountHash::from(&public_key);
+            accounts.push(account_hash);
+            builder
+                .exec(fund_account(&account_hash))
+                .expect_success()
+                .commit();
         }
+
+        TestEnvState { builder, accounts }
     }
 
     pub fn next_user(&mut self) -> AccountHash {
         self.accounts.pop().unwrap()
     }
 
-    pub fn run(&mut self, sender: Sender, session_code: Code, session_args: RuntimeArgs) {
-        let Sender(sender) = sender;
-        let session = SessionBuilder::new(session_code, session_args)
-            .with_address(sender)
-            .with_authorization_keys(&[sender])
-            .build();
-        self.context.run(session);
+    pub fn _run(
+        &mut self,
+        sender: AccountHash,
+        session_code: DeploySource,
+        session_args: RuntimeArgs,
+    ) {
+        deploy(
+            &mut self.builder,
+            &sender,
+            &session_code,
+            session_args,
+            true,
+            None,
+        )
     }
 
     pub fn query_dictionary<T: CLTyped + FromBytes>(
         &self,
-        contract_hash: Hash,
-        dict_name: &str,
-        key: String,
+        contract_hash: [u8; 32],
+        dict_name: String,
+        dictionary_item_key: String,
     ) -> Option<T> {
-        match self.context.query_dictionary_item(
+        match query_dictionary_item(
+            &self.builder,
             Key::Hash(contract_hash),
-            Some(dict_name.to_string()),
-            key,
+            Some(dict_name),
+            dictionary_item_key,
         ) {
-            Err(_) => None,
-            Ok(maybe_value) => {
-                let value: Option<T> = maybe_value
-                    .into_t()
-                    .unwrap_or_else(|_| panic!("is not expected type."));
-                value
+            Ok(value) => value
+                .as_cl_value()
+                .expect("should be cl value.")
+                .clone()
+                .into_t()
+                .expect("Wrong type in query result."),
+            Err(e) => {
+                println!("{}", e);
+                None
             }
         }
     }
 
-    pub fn query_account_named_key(&self, account: AccountHash, path: &[String]) -> Value {
-        self.context.query(account, path).unwrap()
+    pub fn query_account_named_key<T: CLTyped + FromBytes>(
+        &self,
+        account: AccountHash,
+        path: &[String],
+    ) -> T {
+        query(&self.builder, Key::Account(account), path)
     }
 }

@@ -1,0 +1,35 @@
+---
+name: nightly-scheduled-test
+
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    # runs every day at midnight
+    - cron: "0 0 * * *"
+
+jobs:
+  nightly-make-test:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          components: rustfmt, clippy
+
+      # Needed for gcc install
+      - run: sudo apt update && sudo apt install -y build-essential
+      - uses: Swatinem/rust-cache@v1
+      - run: make prepare
+      - run: make test
+
+      - name: Slack Notification
+        uses: ravsamhq/notify-slack-action@v1
+        if: always()
+        with:
+          status: ${{ job.status }}
+          notification_title: "*{repo}*"
+          message_format: "{emoji} *{workflow}* *{status_message}* in <{repo_url}|{repo}@{branch}> on <{commit_url}|{commit_sha}>"
+          footer: "<{run_url}|View Run>"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

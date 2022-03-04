@@ -24,6 +24,7 @@ jobs:
         components: rustfmt, clippy
     # Needed for gcc install
     - run: sudo apt update && sudo apt install -y build-essential
+    - uses: Swatinem/rust-cache@v1
     - run: make prepare
     - run: make check-lint
     # Tests will be added after NCTL interaction is possible.

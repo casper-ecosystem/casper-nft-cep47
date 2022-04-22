@@ -15,7 +15,7 @@ We will go through each one with examples in the next sections.
 
 **Prerequisite**
 
-Make sure you have [installed the NFT contract](deploy.md) on the Casper Network.
+Make sure you have [installed the NFT contract](/Basic-Tutorial.md#sending-the-contract-to-the-network) on the Casper Network.
 
 ## Enabling the Event Stream
 To trigger the events related to the contract, you must run the *casper-contracts-js-clients/e2e/cep47/usage.ts* file using NodeJS. 

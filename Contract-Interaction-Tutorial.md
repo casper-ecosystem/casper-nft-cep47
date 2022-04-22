@@ -614,3 +614,5 @@ tokenFourMeta = await cep47.getTokenMeta("4");
 
 </details>
 <br></br>
+
+Visit the [CEP-47 Basic Tutorial](Basic-Tutorial.md) for CEP-47 contract basic details.

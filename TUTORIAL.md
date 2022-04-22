@@ -1,17 +1,9 @@
 # The NFT Standard on Casper (CEP-47)
 
-This tutorial takes you through the standard of implementing [non-fungible tokens](https://docs.casperlabs.io/glossary/N/#non-fungible-token) on the Casper Network. Before diving into the Casper NFT implementation, let's cover some knowledge on overall NFT design. The following sections illustrate the origin and the development of NFTs in the blockchain domain.
-
-## The NFT Standard on Ethereum
-[ERC-721](https://eips.ethereum.org/EIPS/eip-721) is the standard defined to implement NFTs on the Ethereum blockchain. This standard defines a minimum interface a smart contract should implement to manage, own, and trade unique tokens. 
-
-## The NFT Standard on Casper
-[CEP-47](https://github.com/casper-ecosystem/casper-nft-cep47) is the NFT standard for the Casper blockchain, supporting the unique traits of the Casper Virtual Machine and its gas-efficient design. 
-
-The Casper NFT standard takes full advantage of [unforgeable references](https://docs.casperlabs.io/design/uref/) to store values and manage permissions to them. It also takes advantage of other access control features (such as [groups](https://docs.casperlabs.io/glossary/G/#groups)). We recommend exploring the [main functions](#casper-nft-cep-47-functions) of the [contract](https://github.com/casper-ecosystem/casper-nft-cep47/blob/master/cep47/bin/cep47_token.rs) to understand the standard further.
-
+This tutorial takes you through the standard of implementing [non-fungible tokens](https://docs.casperlabs.io/glossary/N/#non-fungible-token) on the Casper Network.
 
 ## Casper NFT (CEP-47) Functions
+
 The CEP-47 standard contains the following functions to enable NFTs.  
 
 - [*name*](https://github.com/casper-ecosystem/casper-nft-cep47/blob/09b40b0caf4cfc6f73d1e5f7d5b9c868228f7621/cep47/bin/cep47_token.rs#L44-L47) - Returns the name of the NFT contract

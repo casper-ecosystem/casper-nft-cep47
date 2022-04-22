@@ -1,4 +1,4 @@
-## Contract Interaction and Events
+# Contract Interaction and Events
 
 The NFT contract emits events. These events occur when some operation (like minting tokens) succeeds.
 

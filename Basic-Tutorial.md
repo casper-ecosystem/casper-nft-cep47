@@ -274,3 +274,6 @@ Finally, the contract hash is derived from account information, and you can chec
     `${CONTRACT_NAME!}_contract_hash`
   );
 ```
+<br></br>
+
+Visit [Contract Interaction and Events Tutorial](/Contract-Interaction-Tutorial.md) to get more details about NFT contract events and how to enable each event type with examples.

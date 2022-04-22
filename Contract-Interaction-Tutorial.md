@@ -1,8 +1,8 @@
 # Contract Interaction and Events
 
-The NFT contract emits events. These events occur when some operation (like minting tokens) succeeds.
+This tutorial examines the events emitted by the [example NFT contract](https://github.com/casper-ecosystem/casper-nft-cep47/blob/master/cep47/bin/cep47_token.rs) in this repository. These events occur when some operation (like minting tokens) succeeds.
 
-There are seven main event types for Casper NFT contract. Those are:
+There are seven main event types for the Casper NFT contract:
 - [Mint](#minting-tokens)
 - [Burn](#burning-tokens)
 - [Mint Copies](#minting-copies-of-tokens)
@@ -15,7 +15,7 @@ We will go through each one with examples in the next sections.
 
 **Prerequisite**
 
-Make sure you have [installed the NFT contract](deploy.md) on the Casper Network.
+Make sure you have [installed the NFT contract](deploy.md) on the Casper Network. For details, visit the [CEP-47 Basic Tutorial](Basic-Tutorial.md).
 
 ## Enabling the Event Stream
 To trigger the events related to the contract, you must run the *casper-contracts-js-clients/e2e/cep47/usage.ts* file using NodeJS. 
@@ -614,5 +614,3 @@ tokenFourMeta = await cep47.getTokenMeta("4");
 
 </details>
 <br></br>
-
-Visit the [CEP-47 Basic Tutorial](Basic-Tutorial.md) for CEP-47 contract basic details.

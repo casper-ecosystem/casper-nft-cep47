@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 hex = { version = "0.4.3", default-features = false }
-casper-contract = "1.4.3"
-casper-types = "1.4.4"
+casper-contract = "1.4.4"
+casper-types = "1.5.0"
 contract-utils = { path = "../utils/contract-utils" }
 
 [[bin]]

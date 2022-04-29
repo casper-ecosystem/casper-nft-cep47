@@ -95,9 +95,9 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "casper-contract"
-version = "1.4.3"
+version = "1.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4e145bb5b2cde2f0c76b8571a03ef8a6de37616ef0e6e4b8a9bac937ff39c40"
+checksum = "790b76807d64788758208757b0a17970bf756cb7c392f55b1a22021a34f95991"
 dependencies = [
  "casper-types",
  "hex_fmt",
@@ -106,9 +106,9 @@ dependencies = [
 
 [[package]]
 name = "casper-engine-test-support"
-version = "2.0.3"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13aeaa9950a9d0e778d0a94de98a323337b54e6c03bdeeafe44af19ea6005240"
+checksum = "2f5b84fe8188679a145eee4888864150f28d69f0fcef90d3663d8d69ad32685b"
 dependencies = [
  "casper-execution-engine",
  "casper-hashing",
@@ -123,9 +123,9 @@ dependencies = [
 
 [[package]]
 name = "casper-execution-engine"
-version = "1.4.4"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dddee9d2f4e3dacdb7c69887cfe0ae1d2ffa6fa8af340d5d0ed4243ab21fbd24"
+checksum = "8e596ca06972bce89990740058a79f846439fee9d82f6e0b6da2511d0e83a6a1"
 dependencies = [
  "anyhow",
  "base16",
@@ -183,9 +183,9 @@ dependencies = [
 
 [[package]]
 name = "casper-types"
-version = "1.4.6"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9da1776d44d053d9b60040b7e70b448ce34608762e989cc1106d083125bf200"
+checksum = "a13e82a13d1784104fd021a38da56c69da94e84b26b03c2cf3d8da3895a16c8c"
 dependencies = [
  "base16",
  "base64",

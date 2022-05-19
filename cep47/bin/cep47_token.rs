@@ -186,12 +186,12 @@ fn call() {
     let (contract_hash, _) = storage::new_contract(
         get_entry_points(),
         None,
-        Some(String::from("contract_package_hash")),
+        Some(format!("{}_contract_package_hash", contract_name)),
         None,
     );
 
     let package_hash: ContractPackageHash = ContractPackageHash::new(
-        runtime::get_key("contract_package_hash")
+        runtime::get_key(&format!("{}_contract_package_hash", contract_name))
             .unwrap_or_revert()
             .into_hash()
             .unwrap_or_revert(),

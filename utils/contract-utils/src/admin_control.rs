@@ -1,7 +1,4 @@
-use casper_contract::{
-    contract_api::{runtime, storage},
-    unwrap_or_revert::UnwrapOrRevert,
-};
+use casper_contract::contract_api::runtime;
 use casper_types::{ApiError, Key};
 
 use crate::{ContractContext, ContractStorage, Dict};
@@ -29,7 +26,7 @@ pub trait AdminControl<Storage: ContractStorage>: ContractContext<Storage> {
 
     fn assert_caller_is_admin(&self) {
         let caller = self.get_caller();
-        if !Admins::instance().is_admin(&caller) {
+        if !self.is_admin(caller) {
             runtime::revert(ApiError::User(20));
         }
     }
@@ -50,7 +47,7 @@ impl Admins {
         }
     }
     pub fn init() {
-        storage::new_dictionary(ADMINS_DICT).unwrap_or_revert();
+        Dict::init(ADMINS_DICT);
     }
 
     pub fn is_admin(&self, key: &Key) -> bool {

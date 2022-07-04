@@ -12,7 +12,7 @@ pub trait ContractContext<Storage: ContractStorage> {
         element_to_key(caller.unwrap_or_revert())
     }
 
-    fn self_addr(&mut self) -> Key {
+    fn self_addr(&self) -> Key {
         let call_stack = self.storage().call_stack();
         element_to_key(call_stack.last().unwrap_or_revert())
     }

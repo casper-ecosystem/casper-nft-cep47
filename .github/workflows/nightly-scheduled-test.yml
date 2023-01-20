@@ -33,3 +33,6 @@ jobs:
           footer: "<{run_url}|View Run>"
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Fake Commit after 50 days
+        uses: gautamkrishnar/keepalive-workflow@790c7f09285a59b09bb578c85e271c6ff2af97c4 #v1.1.0

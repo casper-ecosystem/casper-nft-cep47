@@ -1,3 +1,4 @@
 target
 cep47-tests/wasm/*.wasm
 node_modules
+.DS_Store

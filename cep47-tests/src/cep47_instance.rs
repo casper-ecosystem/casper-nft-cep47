@@ -167,6 +167,11 @@ impl CEP47Instance {
         )
     }
 
+    pub fn revoke(&self, sender: AccountHash, token_ids: Vec<TokenId>) {
+        self.0
+            .call_contract(sender, "revoke", runtime_args! {"token_ids" => token_ids})
+    }
+
     pub fn get_approved<T: Into<Key>>(&self, owner: T, token_id: TokenId) -> Option<Key> {
         self.0.query_dictionary(
             "allowances",

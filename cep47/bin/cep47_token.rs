@@ -161,6 +161,12 @@ fn approve() {
 }
 
 #[no_mangle]
+fn revoke() {
+    let token_ids = runtime::get_named_arg::<Vec<TokenId>>("token_ids");
+    NFTToken::default().revoke(token_ids).unwrap_or_revert();
+}
+
+#[no_mangle]
 fn get_approved() {
     let owner = runtime::get_named_arg::<Key>("owner");
     let token_id = runtime::get_named_arg::<TokenId>("token_id");
@@ -352,6 +358,16 @@ fn get_entry_points() -> EntryPoints {
             Parameter::new("spender", Key::cl_type()),
             Parameter::new("token_ids", CLType::List(Box::new(TokenId::cl_type()))),
         ],
+        <()>::cl_type(),
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    entry_points.add_entry_point(EntryPoint::new(
+        "revoke",
+        vec![Parameter::new(
+            "token_ids",
+            CLType::List(Box::new(TokenId::cl_type())),
+        )],
         <()>::cl_type(),
         EntryPointAccess::Public,
         EntryPointType::Contract,

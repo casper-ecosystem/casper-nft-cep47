@@ -17,6 +17,10 @@ pub enum CEP47Event {
         spender: Key,
         token_ids: Vec<TokenId>,
     },
+    Revoke {
+        owner: Key,
+        token_ids: Vec<TokenId>,
+    },
     Transfer {
         sender: Key,
         recipient: Key,

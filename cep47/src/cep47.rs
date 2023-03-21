@@ -202,6 +202,22 @@ pub trait CEP47<Storage: ContractStorage>: ContractContext<Storage> {
         Ok(())
     }
 
+    fn revoke(&mut self, token_ids: Vec<TokenId>) -> Result<(), Error> {
+        let caller = self.get_caller();
+        for token_id in &token_ids {
+            match self.owner_of(*token_id) {
+                None => return Err(Error::WrongArguments),
+                Some(owner) if owner != caller => return Err(Error::PermissionDenied),
+                Some(_) => Allowances::instance().remove(&caller, token_id),
+            }
+        }
+        self.emit(CEP47Event::Revoke {
+            owner: caller,
+            token_ids,
+        });
+        Ok(())
+    }
+
     fn get_approved(&self, owner: Key, token_id: TokenId) -> Option<Key> {
         Allowances::instance().get(&owner, &token_id)
     }

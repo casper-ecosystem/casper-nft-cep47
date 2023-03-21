@@ -386,3 +386,27 @@ fn test_token_metadata_update() {
     token.update_token_meta(owner, token_id, meta::gold_dragon());
     assert_eq!(token.token_meta(token_id).unwrap(), meta::gold_dragon());
 }
+
+#[test]
+#[should_panic]
+fn test_transfer_from_tokens_after_revoked_approval() {
+    let (env, token, owner) = deploy();
+    let ali = env.next_user();
+    let bob = env.next_user();
+    let token_metas = vec![meta::red_dragon(), meta::gold_dragon()];
+    let token_ids = vec![TokenId::zero(), TokenId::one()];
+
+    token.mint_many(owner, ali, token_ids.clone(), token_metas);
+    assert_eq!(token.total_supply(), U256::from(2));
+    assert_eq!(token.balance_of(Key::Account(ali)), U256::from(2));
+    assert_eq!(token.owner_of(token_ids[0]).unwrap(), Key::Account(ali));
+    assert_eq!(token.owner_of(token_ids[1]).unwrap(), Key::Account(ali));
+    token.approve(ali, bob, vec![TokenId::one()]);
+    assert_eq!(
+        token.get_approved(ali, token_ids[1]).unwrap(),
+        Key::Account(bob)
+    );
+    token.revoke(ali, vec![TokenId::one()]);
+
+    token.transfer_from(bob, ali, owner, vec![TokenId::one()]);
+}

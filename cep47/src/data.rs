@@ -283,6 +283,16 @@ pub fn emit(event: &CEP47Event) {
                 events.push(param);
             }
         }
+        CEP47Event::Revoke { owner, token_ids } => {
+            for token_id in token_ids {
+                let mut param = BTreeMap::new();
+                param.insert(CONTRACT_PACKAGE_HASH, package.to_string());
+                param.insert("event_type", "cep47_revoke_token".to_string());
+                param.insert("owner", owner.to_string());
+                param.insert("token_id", token_id.to_string());
+                events.push(param);
+            }
+        }
         CEP47Event::Transfer {
             sender,
             recipient,

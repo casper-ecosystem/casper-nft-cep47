@@ -8,4 +8,4 @@ The equivalent NFT standard on Ethereum is [ERC-721](https://eips.ethereum.org/E
 
 For more information on contract implementation and sending the contract to the network, visit the [CEP-47 Basic Tutorial](/Basic-Tutorial.md), an illustrated guide on implementing, deploying, and testing a sample Casper NFT contract.
 
-Visit the [Contract Interaction and Events Tutorial](/Contract-Interaction-Tutorial.md) to get more details about emitting and monitoring contract events.
+Visit the [Contract Interaction and Events Tutorial](/Contract-Interaction-Tutorial.md) to get more details about emitting and monitoring contract events. 
